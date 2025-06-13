@@ -1,17 +1,14 @@
-//
-//  TryTennisApp.swift
-//  TryTennis
-//
-//  Created by Richard Sugiharto on 11/06/25.
-//
-
 import SwiftUI
+import SwiftData
 
 @main
 struct TryTennisApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            SplashScreenView()
         }
+        .modelContainer(for: [SessionHistory.self])
     }
 }
