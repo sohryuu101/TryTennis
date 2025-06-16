@@ -35,7 +35,7 @@ struct MainView: View {
                         .padding(.horizontal)
                     }
                     
-                    NavigationLink(destination: ImagePickerView()){
+                    NavigationLink(destination: LiveAnalysisView()){
                         ZStack{
                             Image("LiveAnalysis")
                                 .resizable()
@@ -133,6 +133,7 @@ struct MainView: View {
             }
         }
         .tint(Color(red: 249/255, green: 122/255, blue: 0/255))
+        .orientationLock(.portrait)
     }
 }
 
