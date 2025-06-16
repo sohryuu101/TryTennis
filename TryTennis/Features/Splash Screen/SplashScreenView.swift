@@ -13,9 +13,9 @@ struct SplashScreenView: View{
                 
                 VStack(alignment: .center, spacing: 10){
                     VStack{
-                        Image("TryTennisIcon")
+                        Image("IconTransparent")
                             .resizable()
-                            .frame(width: 200, height: 200)
+                            .frame(width: 150, height: 160)
                         
                         Text("TryTennis")
                             .font(.system(size: 28, weight: .bold))

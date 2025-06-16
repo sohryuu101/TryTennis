@@ -24,7 +24,6 @@ struct SessionHistoryView: View {
     
     var body: some View {
         ZStack {
-            
             Color(red: 5 / 255, green: 44 / 255, blue: 6 / 255)
                 .ignoresSafeArea(edges: .all)
             

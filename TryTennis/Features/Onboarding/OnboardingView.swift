@@ -16,7 +16,7 @@ struct OnboardingView: View {
             VStack{
                 Image("IconTransparent")
                     .resizable()
-                    .frame(width: 75, height: 75)
+                    .frame(width: 70, height: 75)
                 
                 Spacer()
                 

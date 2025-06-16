@@ -18,7 +18,7 @@ struct MainView: View {
                             Spacer()
                             Image("IconTransparent")
                                 .resizable()
-                                .frame(width: 50, height: 50)
+                                .frame(width: 47, height: 50)
                             Spacer()
                         }
                         
@@ -81,7 +81,7 @@ struct MainView: View {
                     }
                     .padding(.top, 30)
                     
-                    NavigationLink(destination: ImagePickerView()){
+                    NavigationLink(destination: GripClassifierView()){
                         ZStack{
                             Image("GripClassifierImage")
                                 .resizable()

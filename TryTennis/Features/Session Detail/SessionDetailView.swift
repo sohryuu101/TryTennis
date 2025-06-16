@@ -88,6 +88,17 @@ struct SessionDetailView: View {
                 }
                 .padding(.horizontal)
                 .navigationTitle("Session Detail")
+                .toolbar {
+                    ToolbarItem{
+                        Button(action:{
+                            /// Delete Session History
+                            print("Delete Session History")
+                        }, label:{
+                            Image(systemName: "trash.fill")
+                                .foregroundColor(Color(red: 249/255, green: 122/255, blue: 0/255))
+                        })
+                    }
+                }
             }
         }
     }
