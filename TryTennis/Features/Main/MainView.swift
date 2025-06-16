@@ -27,7 +27,7 @@ struct MainView: View {
                             
                             NavigationLink(destination: SessionHistoryView()){
                                 Image(systemName: "clock.fill")
-                                     
+                                      
                                     .foregroundColor(Color.white)
                                     .cornerRadius(10)
                             }

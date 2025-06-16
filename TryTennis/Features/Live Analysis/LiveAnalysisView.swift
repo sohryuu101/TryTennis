@@ -17,6 +17,41 @@ struct LiveAnalysisView: View {
                         VStack {
                             // Classification Results
                             VStack(spacing: 12) {
+                                // Statistics Panel
+                                HStack(spacing: 20) {
+                                    // Successful Shots
+                                    VStack(spacing: 4) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                            .font(.system(size: 24))
+                                        Text("\(cameraService.successfulShots)")
+                                            .font(.title2)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.green)
+                                        Text("Successful")
+                                            .font(.caption)
+                                            .foregroundColor(.white.opacity(0.8))
+                                    }
+                                    
+                                    // Failed Shots
+                                    VStack(spacing: 4) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.red)
+                                            .font(.system(size: 24))
+                                        Text("\(cameraService.failedShots)")
+                                            .font(.title2)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.red)
+                                        Text("Failed")
+                                            .font(.caption)
+                                            .foregroundColor(.white.opacity(0.8))
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 12)
+                                .background(.ultraThinMaterial)
+                                .cornerRadius(16)
+                                
                                 // Swing Detection Status
                                 HStack {
                                     Image(systemName: cameraService.strokeClassification.contains("Impact") ? "target" : "waveform.path.ecg")
@@ -117,6 +152,25 @@ struct LiveAnalysisView: View {
                     VStack(spacing: 30) {
                         Spacer()
                         
+                        // Button to select a video (now reset stats)
+                        Button(action: {
+                            cameraService.resetStatistics()
+                        }) {
+                            VStack(spacing: 8) {
+                                Image(systemName: "arrow.counterclockwise") // Changed icon for reset
+                                    .font(.system(size: 32))
+                                    .foregroundColor(.white)
+                                Text("Reset\nStats") // Changed text for reset
+                                    .font(.caption)
+                                    .foregroundColor(.white)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 8)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(12)
+                        }
+                        
                         // Button to Start/Stop the processing
                         Button(action: {
                             cameraService.toggleProcessing()
@@ -147,33 +201,33 @@ struct LiveAnalysisView: View {
                         Spacer()
                         
                         // Model Status Indicator
-                        VStack(spacing: 12) {
-                            Text("AI Models")
-                                .font(.caption2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white.opacity(0.8))
+                        // VStack(spacing: 12) {
+                        //     Text("AI Models")
+                        //         .font(.caption2)
+                        //         .fontWeight(.semibold)
+                        //         .foregroundColor(.white.opacity(0.8))
                             
-                            VStack(spacing: 8) {
-                                HStack(spacing: 6) {
-                                    Circle()
-                                        .fill(Color.green)
-                                        .frame(width: 6, height: 6)
-                                    Text("Swing Detector")
-                                        .font(.caption2)
-                                        .foregroundColor(.white)
-                                }
+                        //     VStack(spacing: 8) {
+                        //         HStack(spacing: 6) {
+                        //             Circle()
+                        //                 .fill(Color.green)
+                        //                 .frame(width: 6, height: 6)
+                        //             Text("Swing Detector")
+                        //                 .font(.caption2)
+                        //                 .foregroundColor(.white)
+                        //         }
                                 
-                                HStack(spacing: 6) {
-                                    Circle()
-                                        .fill(Color.green)
-                                        .frame(width: 6, height: 6)
-                                    Text("Angle Classifier")
-                                        .font(.caption2)
-                                        .foregroundColor(.white)
-                                }
-                            }
-                        }
-                        .padding(.bottom, 20)
+                        //         HStack(spacing: 6) {
+                        //             Circle()
+                        //                 .fill(Color.green)
+                        //                 .frame(width: 6, height: 6)
+                        //             Text("Angle Classifier")
+                        //                 .font(.caption2)
+                        //                 .foregroundColor(.white)
+                        //         }
+                        //     }
+                        // }
+                        // .padding(.bottom, 20)
                     }
                     .frame(width: 120)
                     .background(
