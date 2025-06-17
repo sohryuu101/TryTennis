@@ -1,8 +1,8 @@
-import SwiftUI
 import AVFoundation
-import Vision
 import CoreML
 import PhotosUI
+import SwiftUI
+import Vision
 
 class CameraService: NSObject, ObservableObject {
     @Published var strokeClassification: String = "Ready"

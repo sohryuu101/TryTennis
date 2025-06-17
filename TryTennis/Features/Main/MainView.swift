@@ -34,7 +34,7 @@ struct MainView: View {
                         .padding(.horizontal)
                     }
                     
-                    NavigationLink(destination: LiveAnalysisView()){
+                    NavigationLink(destination: LiveAnalysisTutorialView()){
                         ZStack{
                             Image("LiveAnalysis")
                                 .resizable()
