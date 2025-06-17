@@ -27,8 +27,7 @@ struct MainView: View {
                             
                             NavigationLink(destination: SessionHistoryView()){
                                 Image(systemName: "clock.fill")
-                                      
-                                    .foregroundColor(Color.white)
+                                    .foregroundStyle(Color.white)
                                     .cornerRadius(10)
                             }
                         }
@@ -52,28 +51,25 @@ struct MainView: View {
                                 Spacer()
                                 Text("Live Analysis")
                                     .font(.system(size: 20, weight: .semibold))
-                                    .foregroundColor(Color.white)
                                 
                                 Text("Improve your forehand stroke with instant feedback. Track your progress and adjust your technique with live analysis")
                                     .font(.system(size: 13, weight: .regular))
-                                    .foregroundColor(Color.white)
                                     .multilineTextAlignment(.leading)
                                 
                                 HStack{
                                     Spacer()
                                     Text("Start Analyzing")
                                         .font(.system(size: 12, weight: .regular))
-                                        .foregroundColor(Color.white)
                                     
                                     Spacer()
                                         .frame(width: 8)
                                     
                                     Image(systemName: "arrow.right")
-                                        .foregroundColor(Color.white)
                                     Spacer()
                                 }
                                 .padding(.vertical, 16)
                             }
+                            .foregroundStyle(Color.white)
                             .padding(.horizontal, 24)
                         }
                         .frame(maxWidth: .infinity)

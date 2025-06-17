@@ -19,7 +19,7 @@ struct SessionDetailView: View {
                         Text("11.30")
                     }
                     .padding()
-                    .foregroundColor(Color.white)
+                    .foregroundStyle(Color.white)
                     .background(Color(red: 249 / 255, green: 122 / 255, blue: 0))
                     .cornerRadius(10)
                     
@@ -42,7 +42,7 @@ struct SessionDetailView: View {
                         .background(Color.white)
                         .cornerRadius(10)
                     }
-                    .foregroundColor(Color.black)
+                    .foregroundStyle(Color.black)
                     .padding(.top, 16)
                     
                     HStack(spacing: 16) {
@@ -64,12 +64,12 @@ struct SessionDetailView: View {
                         .background(Color.white)
                         .cornerRadius(10)
                     }
-                    .foregroundColor(Color.black)
+                    .foregroundStyle(Color.black)
                     .padding(.top, 8)
                     .padding(.bottom, 20)
                     
                     Text("Performance Review")
-                        .foregroundColor(Color.white)
+                        .foregroundStyle(Color.white)
                         .font(.system(size: 28, weight: .bold))
                     
                     TabView {
@@ -95,7 +95,7 @@ struct SessionDetailView: View {
                             print("Delete Session History")
                         }, label:{
                             Image(systemName: "trash.fill")
-                                .foregroundColor(Color(red: 249/255, green: 122/255, blue: 0/255))
+                                .foregroundStyle(Color(red: 249/255, green: 122/255, blue: 0/255))
                         })
                     }
                 }
