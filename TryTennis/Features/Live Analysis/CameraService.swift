@@ -2,6 +2,7 @@ import AVFoundation
 import CoreML
 import PhotosUI
 import SwiftData
+import Vision
 import WatchConnectivity
 import Photos
 
