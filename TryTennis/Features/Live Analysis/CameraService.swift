@@ -78,7 +78,6 @@ class CameraService: NSObject, ObservableObject {
     // Enhanced net detection
     private var netPositions: [CGRect] = []
     private var confirmedNetPosition: CGRect?
-    private let netDetectionFrames = 30 // Detect net over more frames for better accuracy
     private var currentNetFrameCount = 0
     
     // Ball state tracking
@@ -153,6 +152,12 @@ class CameraService: NSObject, ObservableObject {
     private let angleResultHistoryLength = 5
     private let angleResultConsensus = 3 // Require 3/5 agreement
     private let angleConfidenceThreshold: Float = 0.7 // Only accept high-confidence angle results
+    
+    // --- Net crossing logic from robust branch ---
+    private var netBox: CGRect? = nil
+    private var netDetectionFrames = 0
+    private let netDetectionMaxFrames = 10
+    private var lastBallSide: String? = nil // "left" or "right"
     
     override init() {
         super.init()
@@ -626,48 +631,14 @@ class CameraService: NSObject, ObservableObject {
             )
         }
         
-        // Enhanced net detection with validation
-        if let netRect = currentNetPosition, validateNetPosition(netRect) {
-            netPositions.append(netRect)
-            currentNetFrameCount += 1
-            
-            // Keep only recent net detections
-            if netPositions.count > netDetectionFrames {
-                netPositions.removeFirst()
-            }
-            
-            // Establish confirmed net position after collecting enough samples
-            if confirmedNetPosition == nil && netPositions.count >= 10 {
-                confirmedNetPosition = calculateStableNetPosition()
-                // Persist the first confirmed net position for the session
-                if sessionNetPosition == nil, let netPos = confirmedNetPosition {
-                    sessionNetPosition = netPos
-                }
-                if let netPos = confirmedNetPosition {
-                    netTopY = netPos.minY
-                    netBottomY = netPos.maxY
-                    print("✅ Confirmed net position: \(netPos)")
-                    DispatchQueue.main.async {
-                        self.currentStatus = "Net detected - ready for ball tracking"
-                    }
-                }
-            }
+        // Net detection only in the first N frames
+        if netBox == nil, let netRect = currentNetPosition, netDetectionFrames < netDetectionMaxFrames {
+            netBox = netRect
+            netDetectionFrames += 1
         }
-        
-        // Enhanced ball tracking and net crossing analysis
+        // Process ball-net crossing
         if let ballPosition = currentBallPosition {
-            updateBallTrajectory(ballPosition: ballPosition, frameCount: self.frameCount)
-            
-            // Only process net crossing if we have a confirmed net position
-            if let netPos = confirmedNetPosition {
-                let crossingResult = analyzeNetCrossing(ballPosition: ballPosition, netPosition: netPos)
-                if crossingResult != .uncertain {
-                    processCrossingResult(crossingResult)
-                }
-            }
-        } else {
-            // Ball lost - handle trajectory cleanup
-            handleBallLost()
+            processBallNetCrossing(ballPosition: ballPosition)
         }
         
         // Store positions for next frame (for ball-net crossing logic only, not for drawing)
@@ -1084,6 +1055,40 @@ class CameraService: NSObject, ObservableObject {
         let maxDy = dys.max() ?? 0
         // Require max dy to be within a reasonable range
         return maxDy < 0.08
+    }
+
+    private func processBallNetCrossing(ballPosition: CGRect) {
+        guard let netBox = netBox else { return }
+        let netLineX = netBox.minX // Use left edge of net as the crossing line
+        let ballCenterX = ballPosition.midX
+        let side = ballCenterX < netLineX ? "left" : "right"
+        if let lastSide = lastBallSide, lastSide == "left", side == "right" {
+            // Ball crossed from left to right (player to net)
+            if ballPosition.midY >= netBox.minY && ballPosition.midY <= netBox.maxY {
+                handleFailedShot(reason: "hit the net")
+            } else if ballPosition.midY < netBox.minY {
+                handleFailedShot(reason: "went under the net")
+            } else {
+                handleSuccessfulShot()
+            }
+            lastBallSide = side
+            return
+        }
+        lastBallSide = side
+    }
+
+    private func handleSuccessfulShot() {
+        DispatchQueue.main.async {
+            self.successfulShots += 1
+            self.currentStatus = "Shot successful!"
+        }
+    }
+
+    private func handleFailedShot(reason: String) {
+        DispatchQueue.main.async {
+            self.failedShots += 1
+            self.currentStatus = "Shot failed - \(reason)"
+        }
     }
 }
 
