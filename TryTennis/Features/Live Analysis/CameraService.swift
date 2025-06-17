@@ -3,6 +3,9 @@ import AVFoundation
 import Vision
 import CoreML
 import PhotosUI
+import SwiftData
+import WatchConnectivity
+import Photos
 
 class CameraService: NSObject, ObservableObject {
     @Published var strokeClassification: String = "Ready"
@@ -17,6 +20,9 @@ class CameraService: NSObject, ObservableObject {
     @Published var failedShots: Int = 0
     @Published var currentStatus: String = "Ready to start"
     @Published var detectedObjects: [DetectedObject] = []
+    
+    // Add ModelContext property
+    var modelContext: ModelContext? = nil
 
     // Camera capture properties
     let captureSession = AVCaptureSession()
@@ -36,6 +42,7 @@ class CameraService: NSObject, ObservableObject {
     // Ball tracking properties
     var lastBallPosition: CGRect?
     var lastNetPosition: CGRect?
+    var currentRacquetPosition: CGRect? // Add racquet position tracking
     
     private var isBallCrossingNet = false
     private var lastBallState: BallState = .unknown
@@ -51,6 +58,11 @@ class CameraService: NSObject, ObservableObject {
     private let maxGraceFrames = 5
     private var pendingImpact: Bool = false
     private var pendingImpactTime: CMTime? = nil
+    
+    // Add properties for racquet-ball proximity detection
+    private var lastRacquetAngleAnalysisTime: Date? = nil
+    private var angleDismissTimer: Timer? = nil
+    private let racquetAngleAnalysisCooldown: Double = 0.1 // Reduced cooldown for more responsive updates
     
     enum BallState {
         case unknown
@@ -75,7 +87,16 @@ class CameraService: NSObject, ObservableObject {
     private var lastImpactPixelBuffer: CVPixelBuffer? = nil
     // Add a property to store the current pixel buffer for each frame
     private var currentPixelBuffer: CVPixelBuffer? = nil
-
+    
+    // Video recording properties
+    let movieFileOutput = AVCaptureMovieFileOutput()
+    private var recordingStartTime: CMTime?
+    // Storing timestamps as Doubles for persistence in SwiftData
+    private var openRacquetTimestamp: Double? = nil
+    private var closedRacquetTimestamp: Double? = nil
+    private var optimalRacquetTimestamp: Double? = nil
+    private let clipDuration: Double = 2.0 // Duration of clips for playback
+    
     override init() {
         super.init()
         setupCamera()
@@ -88,6 +109,7 @@ class CameraService: NSObject, ObservableObject {
     deinit {
         playerStatusObserver?.invalidate()
         displayLink?.invalidate()
+        angleDismissTimer?.invalidate()
         stopSession()
     }
 
@@ -131,6 +153,11 @@ class CameraService: NSObject, ObservableObject {
         self.videoDataOutput = videoDataOutput
         self.videoDataOutputQueue = DispatchQueue(label: "VideoDataOutput", qos: .userInitiated)
         
+        // Add movieFileOutput to session
+        if captureSession.canAddOutput(movieFileOutput) {
+            captureSession.addOutput(movieFileOutput)
+        }
+        
         captureSession.commitConfiguration()
         
         // Start the session on a background thread
@@ -138,7 +165,7 @@ class CameraService: NSObject, ObservableObject {
             self?.captureSession.startRunning()
             DispatchQueue.main.async {
                 self?.isVideoReady = true
-                self?.strokeClassification = "Camera ready - Tap to start"
+                self?.strokeClassification = "Camera ready - Tap to start racquet analysis"
             }
         }
     }
@@ -147,6 +174,33 @@ class CameraService: NSObject, ObservableObject {
         captureSession.stopRunning()
     }
 
+    private func getDocumentsDirectory() -> URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    }
+    
+    private func startRecording() {
+        PHPhotoLibrary.requestAuthorization { status in
+            if status == .authorized {
+                let tempURL = self.getDocumentsDirectory().appendingPathComponent("\(UUID().uuidString).mov")
+                self.recordingStartTime = CMTime.zero
+                // Start recording to a temporary file
+                self.movieFileOutput.startRecording(to: tempURL, recordingDelegate: self)
+            } else {
+                print("Photo library access denied. Cannot record video.")
+                DispatchQueue.main.async {
+                    self.strokeClassification = "Photo access denied"
+                    self.isProcessing = false // Stop processing if no access
+                }
+            }
+        }
+    }
+    
+    private func stopRecording() {
+        if movieFileOutput.isRecording {
+            movieFileOutput.stopRecording()
+        }
+    }
+    
     private func setupSwingDetectionModel() {
         do {
             swingDetectionModel = try SwingDetectorIteration_120(configuration: MLModelConfiguration())
@@ -196,12 +250,48 @@ class CameraService: NSObject, ObservableObject {
     public func toggleProcessing() {
         isProcessing.toggle()
         if isProcessing {
-            strokeClassification = "Detecting poses..."
+            strokeClassification = "Detecting racquet and ball proximity..."
             frameCount = 0
             poseSequence.removeAll()
+            // Reset stats and clip timestamps when starting new session
+            resetStatistics()
+            openRacquetTimestamp = nil
+            closedRacquetTimestamp = nil
+            optimalRacquetTimestamp = nil
+            // Start recording
+            startRecording()
         } else {
             strokeClassification = "Paused"
+            // Stop recording
+            stopRecording()
+            // Send session ended feedback to Apple Watch
+            WatchConnectivityManager.shared.sendSessionEndedFeedback()
         }
+    }
+
+    // saveSessionData now accepts the local identifier for the video
+    private func saveSessionData(videoLocalIdentifier: String?) {
+        guard let context = modelContext else { return }
+        
+        let newSession = Session(
+            timestamp: Date(),
+            totalAttempts: totalAttempts,
+            successfulShots: successfulShots,
+            failedShots: failedShots
+        )
+        newSession.videoLocalIdentifier = videoLocalIdentifier
+        newSession.openRacquetTimestamp = self.openRacquetTimestamp
+        newSession.closedRacquetTimestamp = self.closedRacquetTimestamp
+        newSession.optimalRacquetTimestamp = self.optimalRacquetTimestamp
+        
+        context.insert(newSession)
+        
+        print("Session saved with video local identifier and timestamps.")
+    }
+    
+    // Method to inject ModelContext
+    func setContext(_ modelContext: ModelContext) {
+        self.modelContext = modelContext
     }
 
     private func processFrameForPoseDetection(_ pixelBuffer: CVPixelBuffer) {
@@ -266,6 +356,8 @@ class CameraService: NSObject, ObservableObject {
             // Pass the pixel buffer for this frame
             self.performSwingDetection(currentPixelBuffer: self.currentPixelBuffer)
         }
+        
+        // Remove automatic racquet angle analysis - now triggered by racquet-ball proximity
     }
     
     private func performSwingDetection(currentPixelBuffer: CVPixelBuffer?) {
@@ -307,15 +399,9 @@ class CameraService: NSObject, ObservableObject {
                         self.handleNewImpact()
                     }
                     
-                    // Only trigger head angle when transitioning from impact to non-impact
-                    if wasImpact && !isImpact {
-                        if let pixelBuffer = self.lastImpactPixelBuffer {
-                            self.analyzeRacquetAngle(pixelBuffer: pixelBuffer)
-                            self.lastImpactPixelBuffer = nil // Reset after use
-                        }
-                    }
+                    // Remove racquet angle analysis from swing detection - now handled by racquet-ball proximity
                     
-                    // Store the pixel buffer for the last impact frame
+                    // Store the pixel buffer for the last impact frame (keep for potential future use)
                     if isImpact, let pixelBuffer = currentPixelBuffer {
                         self.lastImpactPixelBuffer = pixelBuffer
                     }
@@ -352,48 +438,69 @@ class CameraService: NSObject, ObservableObject {
             print("Failed to perform head angle classification request: \(error.localizedDescription)")
             DispatchQueue.main.async {
                 self.angleClassification = "Angle analysis failed"
-                self.resetAfterImpactAnalysis()
+                // Remove automatic clearing - let it stay until next analysis
             }
         }
     }
 
     private func processHeadAngleClassification(for request: VNRequest, error: Error?) {
+        guard let results = request.results as? [VNClassificationObservation],
+              let topResult = results.first else {
+            return
+        }
+        
         DispatchQueue.main.async {
-            defer { self.resetAfterImpactAnalysis() }
+            // Immediately update the angle classification without delay
+            self.angleClassification = topResult.identifier
             
-            guard let results = request.results as? [VNClassificationObservation] else {
-                self.angleClassification = "Unable to classify racquet angle"
-                return
+            // Cancel any existing timer
+            self.angleDismissTimer?.invalidate()
+            
+            // Start a new timer to dismiss the angle after 1.0 seconds
+            self.angleDismissTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { _ in
+                DispatchQueue.main.async {
+                    self.angleClassification = ""
+                    self.currentStatus = "Detecting racquet and ball proximity..."
+                }
             }
             
-            if let topClassification = results.first {
-                let confidence = Int(topClassification.confidence * 100)
-                self.angleClassification = "Racquet angle: \(topClassification.identifier) (\(confidence)%)"
-            } else {
-                self.angleClassification = "No angle detected"
+            // Store the time for clip extraction as Double seconds
+            let currentTime = self.movieFileOutput.recordedDuration.seconds
+            switch topResult.identifier {
+            case "Open":
+                if self.openRacquetTimestamp == nil { // Only store the first occurrence
+                    self.openRacquetTimestamp = currentTime
+                }
+            case "Closed":
+                if self.closedRacquetTimestamp == nil { // Only store the first occurrence
+                    self.closedRacquetTimestamp = currentTime
+                }
+            case "Perfect":
+                if self.optimalRacquetTimestamp == nil { // Only store the first occurrence
+                    self.optimalRacquetTimestamp = currentTime
+                }
+            default:
+                break
             }
+            
+            // Send feedback to Apple Watch immediately
+            let isSuccessful = topResult.identifier == "Perfect"
+            WatchConnectivityManager.shared.sendImmediateShotFeedback(
+                angle: topResult.identifier,
+                isSuccessful: isSuccessful
+            )
+            
+            // Update status to show the result briefly
+            self.currentStatus = "Racquet angle: \(topResult.identifier)"
         }
     }
     
-    private func resetAfterImpactAnalysis() {
-        // Show results for 1 second, then continue analyzing
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            if self.isProcessing {
-                self.strokeClassification = "Detecting poses..."
-                self.angleClassification = ""
-            } else {
-                self.strokeClassification = "Ready"
-                self.angleClassification = ""
-            }
-            self.isImpactProcessing = false
-        }
-    }
-
     private func processRacquetDetection(for request: VNRequest, error: Error?) {
         guard let results = request.results as? [VNRecognizedObjectObservation] else { return }
         
         var currentBallPosition: CGRect?
         var currentNetPosition: CGRect?
+        var currentRacquetPosition: CGRect?
         var newDetectedObjects: [DetectedObject] = []
         
         for observation in results {
@@ -416,6 +523,8 @@ class CameraService: NSObject, ObservableObject {
                     currentBallPosition = boundingBox
                 case "net":
                     currentNetPosition = boundingBox
+                case "racquet":
+                    currentRacquetPosition = boundingBox
                 default:
                     break
                 }
@@ -427,8 +536,22 @@ class CameraService: NSObject, ObservableObject {
             self.detectedObjects = newDetectedObjects
         }
         
+        // Update racquet position
+        self.currentRacquetPosition = currentRacquetPosition
+        
+        // Check for racquet-ball proximity and trigger HeadAngleV2
+        if let racquetPosition = currentRacquetPosition,
+           let ballPosition = currentBallPosition,
+           let currentPixelBuffer = self.currentPixelBuffer {
+            checkRacquetBallProximityAndAnalyzeAngle(
+                racquetPosition: racquetPosition,
+                ballPosition: ballPosition,
+                pixelBuffer: currentPixelBuffer
+            )
+        }
+        
         // Net detection only in the first N frames
-        if netBox == nil, let netRect = currentNetPosition, netDetectionFrames < netDetectionMaxFrames {
+        if netBox == nil, let netRect = currentNetPosition, netDetectionFrames < netDetectionMaxFrames { // Only try to set netBox if not already set
             netBox = netRect
             netDetectionFrames += 1
         }
@@ -485,6 +608,63 @@ class CameraService: NSObject, ObservableObject {
             self.currentStatus = "Shot failed - \(reason)"
         }
     }
+
+    private func checkRacquetBallProximityAndAnalyzeAngle(racquetPosition: CGRect, ballPosition: CGRect, pixelBuffer: CVPixelBuffer) {
+        // Calculate distance between racquet and ball centers
+        let racquetCenter = CGPoint(x: racquetPosition.midX, y: racquetPosition.midY)
+        let ballCenter = CGPoint(x: ballPosition.midX, y: ballPosition.midY)
+        
+        let distance = sqrt(pow(racquetCenter.x - ballCenter.x, 2) + pow(racquetCenter.y - ballCenter.y, 2))
+        
+        // Define proximity threshold (adjust this value based on testing)
+        let proximityThreshold: CGFloat = 0.15 // Normalized distance threshold
+        
+        // Debug: Print distance for tuning
+        print("Racquet-Ball distance: \(distance), threshold: \(proximityThreshold)")
+        
+        // Check if racquet and ball are close enough
+        if distance <= proximityThreshold {
+            // Check cooldown to avoid too frequent analysis
+            let currentTime = Date()
+            if lastRacquetAngleAnalysisTime == nil || 
+               currentTime.timeIntervalSince(lastRacquetAngleAnalysisTime!) >= racquetAngleAnalysisCooldown {
+                
+                print("Triggering HeadAngleV2 analysis - racquet and ball are close")
+                
+                // Clear previous angle classification immediately to show new analysis is starting
+                DispatchQueue.main.async {
+                    self.angleClassification = ""
+                    self.currentStatus = "Analyzing racquet angle..."
+                }
+                
+                // Trigger HeadAngleV2 analysis
+                analyzeRacquetAngle(pixelBuffer: pixelBuffer)
+                lastRacquetAngleAnalysisTime = currentTime
+                
+            } else {
+                print("Skipping analysis - cooldown active")
+            }
+        } else {
+            // Clear angle classification when racquet and ball are not close
+            // This prevents stale results from persisting
+            DispatchQueue.main.async {
+                if !self.angleClassification.isEmpty {
+                    self.angleClassification = ""
+                    self.currentStatus = "Detecting racquet and ball proximity..."
+                }
+            }
+        }
+    }
+
+    // Add method to reset statistics
+    func resetStatistics() {
+        DispatchQueue.main.async {
+            self.totalAttempts = 0
+            self.successfulShots = 0
+            self.failedShots = 0
+            self.currentStatus = "Ready"
+        }
+    }
 }
 
 // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
@@ -511,19 +691,41 @@ extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
             }
         }
     }
-    
-    // Add method to reset statistics
-    func resetStatistics() {
-        DispatchQueue.main.async {
-            self.totalAttempts = 0
-            self.successfulShots = 0
-            self.failedShots = 0
-            self.currentStatus = "Ready"
+}
+
+// MARK: - AVCaptureFileOutputRecordingDelegate
+extension CameraService: AVCaptureFileOutputRecordingDelegate {
+    func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
+        if let error = error {
+            print("Error recording video: \(error.localizedDescription)")
+            // Save session data without video if recording failed
+            DispatchQueue.main.async { [weak self] in
+                self?.saveSessionData(videoLocalIdentifier: nil)
+            }
+            try? FileManager.default.removeItem(at: outputFileURL) // Clean up temporary file
+            return
+        }
+        
+        // Save the recorded video to Photos library
+        var localIdentifier: String? = nil
+        PHPhotoLibrary.shared().performChanges({ 
+            let creationRequest = PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: outputFileURL)
+            localIdentifier = creationRequest?.placeholderForCreatedAsset?.localIdentifier
+        }) { [weak self] saved, error in
+            DispatchQueue.main.async { // Ensure UI updates and SwiftData operations are on main thread
+                if saved {
+                    self?.saveSessionData(videoLocalIdentifier: localIdentifier)
+                } else {
+                    print("Error saving video to Photos library: \(error?.localizedDescription ?? "unknown error")")
+                    self?.saveSessionData(videoLocalIdentifier: nil)
+                }
+                // Delete the temporary video file after it's been handled by Photos
+                try? FileManager.default.removeItem(at: outputFileURL)
+            }
         }
     }
 }
 
-// Add this struct at the end of the file
 struct DetectedObject: Identifiable {
     let id = UUID()
     let label: String

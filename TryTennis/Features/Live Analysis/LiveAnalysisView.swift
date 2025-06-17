@@ -1,10 +1,13 @@
 import SwiftUI
 import PhotosUI
+import SwiftData
 
 struct LiveAnalysisView: View {
     @StateObject private var cameraService = CameraService()
+    @StateObject private var watchConnectivity = WatchConnectivityManager.shared
     @State private var isLandscape = UIDevice.current.orientation.isLandscape
-    
+    @Environment(\.modelContext) private var modelContext
+
     var body: some View {
         ZStack {
             if isLandscape {
@@ -15,131 +18,107 @@ struct LiveAnalysisView: View {
                             .ignoresSafeArea()
                         
                         VStack {
-                            // Classification Results
-                            VStack(spacing: 12) {
-                                // Statistics Panel
-                                HStack(spacing: 20) {
-                                    // Successful Shots
-                                    VStack(spacing: 4) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(.green)
-                                            .font(.system(size: 24))
-                                        Text("\(cameraService.successfulShots)")
-                                            .font(.title2)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.green)
-                                        Text("Successful")
-                                            .font(.caption)
-                                            .foregroundColor(.white.opacity(0.8))
-                                    }
+                            // Watch Connectivity Status
+                            HStack {
+                                HStack(spacing: 8) {
+                                    Circle()
+                                        .fill(watchConnectivity.connectionStatus == .connected ? Color.green : Color.red)
+                                        .frame(width: 8, height: 8)
                                     
-                                    // Failed Shots
-                                    VStack(spacing: 4) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundColor(.red)
-                                            .font(.system(size: 24))
-                                        Text("\(cameraService.failedShots)")
-                                            .font(.title2)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.red)
-                                        Text("Failed")
-                                            .font(.caption)
-                                            .foregroundColor(.white.opacity(0.8))
-                                    }
+                                    Text(watchConnectivity.connectionStatus == .connected ? "Watch Connected" : "Watch Disconnected")
+                                        .font(.caption)
+                                        .foregroundColor(.white)
                                 }
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 12)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
                                 .background(.ultraThinMaterial)
-                                .cornerRadius(16)
+                                .cornerRadius(8)
                                 
-                                // Swing Detection Status
-                                HStack {
-                                    Image(systemName: cameraService.strokeClassification.contains("Impact") ? "target" : "waveform.path.ecg")
-                                        .foregroundColor(cameraService.strokeClassification.contains("Impact") ? .green : .blue)
-                                    Text(cameraService.strokeClassification)
-                                        .font(.headline)
-                                        .fontWeight(.semibold)
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-                                .background(.ultraThinMaterial)
-                                .cornerRadius(12)
-                                .shadow(radius: 2)
-                                
-                                // Racquet Angle Result
-                                if !cameraService.angleClassification.isEmpty {
-                                    HStack {
-                                        Image(systemName: "scope")
-                                            .foregroundColor(.orange)
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text("Racquet Face Angle")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                            Text(cameraService.angleClassification)
-                                                .font(.subheadline)
-                                                .fontWeight(.medium)
-                                        }
-                                        Spacer()
+                                if watchConnectivity.connectionStatus != .connected {
+                                    Button("Reconnect") {
+                                        watchConnectivity.forceReconnect()
                                     }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 12)
-                                    .background(.thinMaterial)
-                                    .cornerRadius(10)
-                                    .shadow(radius: 1)
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(.ultraThinMaterial)
+                                    .cornerRadius(6)
+                                }
+                                
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 10)
+                            
+                            // Statistics Panel
+                            HStack(spacing: 20) {
+                                // Successful Shots
+                                VStack(spacing: 4) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                        .font(.system(size: 24))
+                                    Text("\(cameraService.successfulShots)")
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.green)
+                                    Text("Successful")
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.8))
+                                }
+                                
+                                // Failed Shots
+                                VStack(spacing: 4) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.red)
+                                        .font(.system(size: 24))
+                                    Text("\(cameraService.failedShots)")
+                                        .font(.title2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.red)
+                                    Text("Failed")
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.8))
                                 }
                             }
-                            .padding(.top, 20)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(16)
+                            .padding(.top, 10)
                             .padding(.horizontal)
                             
                             Spacer()
+                        }
+                        
+                        // Racquet Angle Result at the bottom
+                        VStack {
+                            Spacer()
                             
-                            // Debug info at the bottom
-                            VStack(alignment: .leading, spacing: 6) {
+                            if !cameraService.angleClassification.isEmpty {
                                 HStack {
-                                    Image(systemName: "info.circle")
-                                        .foregroundColor(.cyan)
-                                        .font(.caption)
-                                    Text("System Status")
-                                        .font(.caption)
-                                        .foregroundColor(.white)
-                                        .fontWeight(.semibold)
-                                }
-                                
-                                HStack {
-                                    Circle()
-                                        .fill(cameraService.isProcessing ? .green : .gray)
-                                        .frame(width: 8, height: 8)
-                                    Text("Processing: \(cameraService.isProcessing ? "ACTIVE" : "IDLE")")
-                                        .font(.caption2)
-                                        .foregroundColor(.white)
-                                }
-                                
-                                HStack {
-                                    Circle()
-                                        .fill(cameraService.isVideoReady ? .green : .red)
-                                        .frame(width: 8, height: 8)
-                                    Text("Camera: \(cameraService.isVideoReady ? "READY" : "NOT_READY")")
-                                        .font(.caption2)
-                                        .foregroundColor(.white)
-                                }
-                                
-                                if cameraService.isProcessing {
-                                    HStack {
-                                        Image(systemName: "brain.head.profile")
-                                            .foregroundColor(.green)
-                                            .font(.caption2)
-                                        Text("AI analyzing movement patterns...")
-                                            .font(.caption2)
-                                            .foregroundColor(.green)
+                                    Image(systemName: "scope")
+                                        .foregroundColor(.orange)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Racquet Face Angle")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        Text(cameraService.angleClassification)
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
                                     }
+                                    Spacer()
                                 }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(.thinMaterial)
+                                .cornerRadius(10)
+                                .shadow(radius: 1)
+                                .padding(.horizontal)
+                                .padding(.bottom, 20)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                                .animation(.easeInOut(duration: 0.3), value: cameraService.angleClassification)
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(Color.black.opacity(0.8))
-                            .cornerRadius(10)
-                            .padding(.bottom, 20)
-                            .padding(.horizontal)
                         }
                     }
                     
@@ -151,16 +130,16 @@ struct LiveAnalysisView: View {
                     // Right-side control panel
                     VStack(spacing: 30) {
                         Spacer()
-                        
-                        // Button to select a video (now reset stats)
+
+                        // Button to Reset Stats (previously Reset Stats button, now separated)
                         Button(action: {
                             cameraService.resetStatistics()
                         }) {
                             VStack(spacing: 8) {
-                                Image(systemName: "arrow.counterclockwise") // Changed icon for reset
+                                Image(systemName: "arrow.counterclockwise")
                                     .font(.system(size: 32))
                                     .foregroundColor(.white)
-                                Text("Reset\nStats") // Changed text for reset
+                                Text("Reset\nStats")
                                     .font(.caption)
                                     .foregroundColor(.white)
                                     .multilineTextAlignment(.center)
@@ -199,35 +178,6 @@ struct LiveAnalysisView: View {
                         .animation(.easeInOut(duration: 0.2), value: cameraService.isVideoReady)
                         
                         Spacer()
-                        
-                        // Model Status Indicator
-                        // VStack(spacing: 12) {
-                        //     Text("AI Models")
-                        //         .font(.caption2)
-                        //         .fontWeight(.semibold)
-                        //         .foregroundColor(.white.opacity(0.8))
-                            
-                        //     VStack(spacing: 8) {
-                        //         HStack(spacing: 6) {
-                        //             Circle()
-                        //                 .fill(Color.green)
-                        //                 .frame(width: 6, height: 6)
-                        //             Text("Swing Detector")
-                        //                 .font(.caption2)
-                        //                 .foregroundColor(.white)
-                        //         }
-                                
-                        //         HStack(spacing: 6) {
-                        //             Circle()
-                        //                 .fill(Color.green)
-                        //                 .frame(width: 6, height: 6)
-                        //             Text("Angle Classifier")
-                        //                 .font(.caption2)
-                        //                 .foregroundColor(.white)
-                        //         }
-                        //     }
-                        // }
-                        // .padding(.bottom, 20)
                     }
                     .frame(width: 120)
                     .background(
@@ -241,6 +191,9 @@ struct LiveAnalysisView: View {
                 .ignoresSafeArea()
                 .background(Color.black)
                 .orientationLock(.landscape)
+                .onAppear {
+                    cameraService.setContext(modelContext)
+                }
             } else {
                 Color.black.ignoresSafeArea()
                     .overlay(
@@ -286,4 +239,5 @@ struct DeviceRotationViewModifier: ViewModifier {
 
 #Preview {
     LiveAnalysisView()
+        .modelContainer(for: Session.self, inMemory: true)
 }

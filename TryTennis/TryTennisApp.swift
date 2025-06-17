@@ -7,8 +7,10 @@ struct TryTennisApp: App {
     
     var body: some Scene {
         WindowGroup {
-            SplashScreenView()
+            NavigationStack {
+                SplashScreenView()
+            }
         }
-        .modelContainer(for: [SessionHistory.self])
+        .modelContainer(for: [Session.self])
     }
 }

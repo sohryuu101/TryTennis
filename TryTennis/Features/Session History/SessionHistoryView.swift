@@ -1,26 +1,8 @@
 import SwiftUI
+import SwiftData
 
 struct SessionHistoryView: View {
-    @StateObject var viewModel: SessionHistoryViewModel = SessionHistoryViewModel()
-
-    init(){
-        let backgroundColor = UIColor(red: 50 / 255.0, green: 95 / 255.0, blue: 44 / 255.0, alpha: 1)
-
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
-        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
-        appearance.backgroundColor = backgroundColor
-        UINavigationBar.appearance().standardAppearance = appearance
-        
-
-        let scrollEdgeAppearance = UINavigationBarAppearance()
-        scrollEdgeAppearance.configureWithTransparentBackground()
-        scrollEdgeAppearance.titleTextAttributes = [.foregroundColor: UIColor.white]
-        scrollEdgeAppearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
-
-        UINavigationBar.appearance().scrollEdgeAppearance = scrollEdgeAppearance
-    }
+    @Query(sort: \Session.timestamp, order: .reverse) private var sessions: [Session]
     
     var body: some View {
         ZStack {
@@ -37,60 +19,66 @@ struct SessionHistoryView: View {
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 16) {
-                    Group {
-                        Text("Today")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(Color.white)
-                        
-                        ForEach(0...3, id: \.self) { _ in
-                            getSessionHistoryView()
-                        }
-
-                        Text("Last Week")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(Color.white)
-                            .padding(.top, 5)
-                        
-                        ForEach(0...1, id: \.self) { _ in
-                            getSessionHistoryView()
-                        }
-
-                        Text("Past Month")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(Color.white)
-                            .padding(.top, 5)
-                        
-                        ForEach(0...2, id: \.self) { _ in
-                            getSessionHistoryView()
+                    if sessions.isEmpty {
+                        Text("No sessions recorded yet.")
+                            .foregroundColor(.white.opacity(0.7))
+                            .font(.headline)
+                            .padding()
+                    } else {
+                        ForEach(sessions) { session in
+                            SessionHistoryRow(session: session)
                         }
                     }
-                    .padding(.horizontal)
-
                     Spacer(minLength: 20)
                 }
+                .padding(.horizontal)
                 .navigationTitle("Session History")
                 .navigationBarTitleDisplayMode(.large)
+                .toolbarBackground(.visible, for: .navigationBar)
+                .toolbarBackground(Color(red: 50 / 255.0, green: 95 / 255.0, blue: 44 / 255.0), for: .navigationBar)
+                .toolbarColorScheme(.dark, for: .navigationBar)
+                .navigationDestination(for: Session.self) { session in
+                    SessionDetailView()
+                        .environment(SessionDetailViewModel(session: session))
+                }
             }
         }
     }
+}
 
-    private func getSessionHistoryView() -> some View {
-        let randomNumber = Int.random(in: 1...100)
-
-        return NavigationLink(destination: SessionDetailView()) {
+struct SessionHistoryRow: View {
+    let session: Session
+    
+    var body: some View {
+        NavigationLink(value: session) {
             HStack {
-                Text("\(randomNumber) Successful Returns")
+                VStack(alignment: .leading) {
+                    Text(session.timestamp, format: .dateTime.month(.abbreviated).day().hour().minute())
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    Text("Total Shots: \(session.totalAttempts)")
+                        .font(.headline)
+                        .foregroundColor(.black)
+                    Text("Successful: \(session.successfulShots)")
+                        .font(.subheadline)
+                        .foregroundColor(.green)
+                    Text("Failed: \(session.failedShots)")
+                        .font(.subheadline)
+                        .foregroundColor(.red)
+                }
                 Spacer()
                 Image(systemName: "chevron.right")
+                    .foregroundColor(.gray)
             }
             .padding()
-            .foregroundColor(.black)
             .background(Color.white)
             .cornerRadius(10)
         }
+        .buttonStyle(.plain)
     }
 }
 
 #Preview {
     SessionHistoryView()
+        .modelContainer(for: Session.self, inMemory: true)
 }
