@@ -132,95 +132,94 @@ struct GripClassifierView: View {
             }
         }
         .fullScreenCover(isPresented: $viewModel.showPhotoResult) {
-            NavigationStack{
-                if let image = viewModel.image {
-                    if viewModel.classificationResult.count > 0 {
-                        VStack(alignment: .leading){
-                            VStack{
-                                Text(viewModel.classificationResult[0])
-                                    .font(.system(size: 28, weight: .bold))
-                                    .multilineTextAlignment(.center)
+            if let image = viewModel.image {
+                if viewModel.classificationResult.count > 0 {
+                    VStack(alignment: .leading){
+                        Button(action:{
+                            viewModel.closeResult()
+                        }, label:{
+                            Image(systemName: "xmark")
+                                .foregroundStyle(Color(red: 249 / 255, green: 122 / 255, blue: 0))
+                                .font(.system(size: 20, weight: .semibold))
+                        })
+                        
+                        VStack{
+                            Text(viewModel.classificationResult[0])
+                                .font(.system(size: 28, weight: .bold))
+                                .multilineTextAlignment(.center)
 
-                                Text(viewModel.classificationResult[1])
-                                    .font(.system(size: 17, weight: .regular))
-                                    .multilineTextAlignment(.center)
-                            }
-                            .frame(maxWidth: .infinity)
-                            
-                            HStack{
-                                Spacer()
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxHeight: 400)
-                                    .cornerRadius(20)
-                                Spacer()
-                            }
-                            .padding(.vertical, 16)
-                            
-                            HStack{
-                                VStack(alignment: .leading){
-                                    Text("Analyzed By AI")
-                                        .font(.system(size: 15, weight: .semibold))
-                                    
-                                    Text("This score is estimated by AI. For accurate results, ensure to follow the guide closely")
-                                        .font(.system(size: 13, weight: .regular))
-                                }
+                            Text(viewModel.classificationResult[1])
+                                .font(.system(size: 17, weight: .regular))
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        
+                        HStack{
+                            Spacer()
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxHeight: 400)
+                                .cornerRadius(20)
+                            Spacer()
+                        }
+                        .padding(.vertical, 16)
+                        
+                        HStack{
+                            VStack(alignment: .leading){
+                                Text("Analyzed By AI")
+                                    .font(.system(size: 15, weight: .semibold))
                                 
-                                Spacer().frame(width: 15)
-                                
-                                ZStack {
-                                    Circle()
-                                        .stroke(Color.gray.opacity(0.3), lineWidth: 5)
-                                        .frame(width: 60, height: 60)
+                                Text("This score is estimated by AI. For accurate results, ensure to follow the guide closely")
+                                    .font(.system(size: 13, weight: .regular))
+                            }
+                            
+                            Spacer().frame(width: 15)
+                            
+                            ZStack {
+                                Circle()
+                                    .stroke(Color.gray.opacity(0.3), lineWidth: 5)
+                                    .frame(width: 60, height: 60)
 
-                                    Circle()
-                                        .trim(from: 0, to: Double(viewModel.result) / 100)
-                                        .stroke(
-                                            Color.orange,
-                                            style: StrokeStyle(lineWidth: 5, lineCap: .round)
-                                        )
-                                        .rotationEffect(.degrees(-90))
-                                        .frame(width: 58, height: 58)
-                                    
-                                    Text("\(viewModel.result)")
-                                        .font(.system(size: 19, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(.white)
-                                }
-                            }
-                            .frame(maxWidth: .infinity)
-                            
-                            Button(action:{
-                                viewModel.takePhoto()
-                            }, label: {
-                                Text("Analyze Again")
-                                    .font(.system(size: 20, weight: .semibold))
-                                    .padding(.vertical, 9.5)
-                                    .frame(maxWidth: .infinity)
+                                Circle()
+                                    .trim(from: 0, to: Double(viewModel.result) / 100)
+                                    .stroke(
+                                        Color.orange,
+                                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                                    )
+                                    .rotationEffect(.degrees(-90))
+                                    .frame(width: 58, height: 58)
+                                
+                                Text("\(viewModel.result)")
+                                    .font(.system(size: 19, weight: .semibold, design: .rounded))
                                     .foregroundStyle(.white)
-                                    .background(Color(red: 249 / 255, green: 122 / 255, blue: 0))
-                                    .cornerRadius(60)
-                            })
-                        }
-                        .padding(.horizontal)
-                        .toolbar{
-                            ToolbarItem(placement: .topBarLeading) {
-                                Button(action:{
-                                    viewModel.closeResult()
-                                }, label:{
-                                    Image(systemName: "xmark")
-                                        .foregroundStyle(Color(red: 249 / 255, green: 122 / 255, blue: 0))
-                                })
                             }
                         }
+                        .frame(maxWidth: .infinity)
+                        
+                        Spacer()
+                        
+                        Button(action:{
+                            viewModel.takePhoto()
+                        }, label: {
+                            Text("Analyze Again")
+                                .font(.system(size: 20, weight: .semibold))
+                                .padding(.vertical, 9.5)
+                                .frame(maxWidth: .infinity)
+                                .foregroundStyle(.white)
+                                .background(Color(red: 249 / 255, green: 122 / 255, blue: 0))
+                                .cornerRadius(60)
+                                .padding(.bottom)
+                        })
                     }
-                    else{
-                        ProgressView()
-                    }
-                } else {
-                    Text("No image captured.")
-                        .padding()
+                    .padding()
                 }
+                else{
+                    ProgressView()
+                }
+            } else {
+                Text("No image captured.")
+                    .padding()
             }
         }
     }
