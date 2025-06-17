@@ -1,6 +1,4 @@
-import SwiftUI
 import AVFoundation
-import Vision
 import CoreML
 import PhotosUI
 import SwiftData

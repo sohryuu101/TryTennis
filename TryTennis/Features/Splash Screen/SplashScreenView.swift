@@ -19,7 +19,7 @@ struct SplashScreenView: View{
                         
                         Text("TryTennis")
                             .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(Color(red: 249/255, green: 122/255, blue: 0/255))
+                            .foregroundStyle(Color(red: 249/255, green: 122/255, blue: 0/255))
                     }
                     .scaleEffect(size)
                     .opacity(opacity)

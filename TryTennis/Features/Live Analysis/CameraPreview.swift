@@ -1,11 +1,5 @@
-//
-//  CameraPreview.swift
-//  gatau
-//
-//  Created by Akbar Febry on 12/06/25.
-//
-import SwiftUI
 import AVFoundation
+import SwiftUI
 
 struct CameraPreview: UIViewRepresentable {
     @ObservedObject var cameraService: CameraService

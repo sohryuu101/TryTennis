@@ -2,133 +2,131 @@ import SwiftUI
 
 struct MainView: View {
     var body: some View {
-        ZStack{
-            RadialGradient(
-                colors: [Color(red: 10 / 255, green: 45 / 255, blue: 7 / 255), .black],
-                center: UnitPoint(x: 0.5, y: 0.1),
-                startRadius: 0,
-                endRadius: 1100
-            )
-            .ignoresSafeArea(edges: .all)
-            
-            VStack{
-                ZStack {
-                    HStack {
-                        Spacer()
-                        Image("IconTransparent")
-                            .resizable()
-                            .frame(width: 47, height: 50)
-                        Spacer()
+        NavigationStack{
+            ZStack{
+                RadialGradient(
+                    colors: [Color(red: 10 / 255, green: 45 / 255, blue: 7 / 255), .black],
+                    center: UnitPoint(x: 0.5, y: 0.1),
+                    startRadius: 0,
+                    endRadius: 1100
+                )
+                .ignoresSafeArea(edges: .all)
+                
+                VStack{
+                    ZStack {
+                        HStack {
+                            Spacer()
+                            Image("IconTransparent")
+                                .resizable()
+                                .frame(width: 47, height: 50)
+                            Spacer()
+                        }
+                        
+                        HStack{
+                            Spacer()
+                            
+                            NavigationLink(destination: SessionHistoryView()){
+                                Image(systemName: "clock.fill")
+                                    .foregroundStyle(Color.white)
+                                    .cornerRadius(10)
+                            }
+                        }
+                        .padding(.horizontal)
                     }
                     
-                    HStack{
-                        Spacer()
-                        
-                        NavigationLink(destination: SessionHistoryView()){
-                            Image(systemName: "clock.fill")
-                                  
-                                .foregroundColor(Color.white)
+                    NavigationLink(destination: LiveAnalysisTutorialView()){
+                        ZStack{
+                            Image("LiveAnalysis")
+                                .resizable()
                                 .cornerRadius(10)
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-                
-                NavigationLink(destination: LiveAnalysisView()){
-                    ZStack{
-                        Image("LiveAnalysis")
-                            .resizable()
+                            
+                            LinearGradient(
+                                gradient: Gradient(colors: [.clear, Color.black.opacity(0.6)]),
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
                             .cornerRadius(10)
-                        
-                        LinearGradient(
-                            gradient: Gradient(colors: [.clear, Color.black.opacity(0.6)]),
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .cornerRadius(10)
-                        
-                        VStack(alignment: .leading){
-                            Spacer()
-                            Text("Live Analysis")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(Color.white)
                             
-                            Text("Improve your forehand stroke with instant feedback. Track your progress and adjust your technique with live analysis")
-                                .font(.system(size: 13, weight: .regular))
-                                .foregroundColor(Color.white)
-                                .multilineTextAlignment(.leading)
-                            
-                            HStack{
+                            VStack(alignment: .leading){
                                 Spacer()
-                                Text("Start Analyzing")
-                                    .font(.system(size: 12, weight: .regular))
-                                    .foregroundColor(Color.white)
+                                Text("Live Analysis")
+                                    .font(.system(size: 20, weight: .semibold))
                                 
-                                Spacer()
-                                    .frame(width: 8)
+                                Text("Improve your forehand stroke with instant feedback. Track your progress and adjust your technique with live analysis")
+                                    .font(.system(size: 13, weight: .regular))
+                                    .multilineTextAlignment(.leading)
                                 
-                                Image(systemName: "arrow.right")
-                                    .foregroundColor(Color.white)
-                                Spacer()
+                                HStack{
+                                    Spacer()
+                                    Text("Start Analyzing")
+                                        .font(.system(size: 12, weight: .regular))
+                                    
+                                    Spacer()
+                                        .frame(width: 8)
+                                    
+                                    Image(systemName: "arrow.right")
+                                    Spacer()
+                                }
+                                .padding(.vertical, 16)
                             }
-                            .padding(.vertical, 16)
+                            .foregroundStyle(Color.white)
+                            .padding(.horizontal, 24)
                         }
-                        .padding(.horizontal, 24)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 280)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 280)
-                }
-                .padding(.top, 30)
-                
-                NavigationLink(destination: GripClassifierView()){
-                    ZStack{
-                        Image("GripClassifierImage")
-                            .resizable()
+                    .padding(.top, 30)
+                    
+                    NavigationLink(destination: GripClassifierView()){
+                        ZStack{
+                            Image("GripClassifierImage")
+                                .resizable()
+                                .cornerRadius(10)
+                            
+                            LinearGradient(
+                                gradient: Gradient(colors: [.clear, Color.black.opacity(0.6)]),
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
                             .cornerRadius(10)
-                        
-                        LinearGradient(
-                            gradient: Gradient(colors: [.clear, Color.black.opacity(0.6)]),
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .cornerRadius(10)
-                        
-                        VStack(alignment: .leading){
-                            Spacer()
-                            Text("Grip Analysis")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(Color.white)
                             
-                            Text("Learn how to adjust your grip for more consistent and accurate shots. Get feedback to optimize your hold and take control of every shot")
-                                .font(.system(size: 13, weight: .regular))
-                                .foregroundColor(Color.white)
-                                .multilineTextAlignment(.leading)
-                            
-                            HStack{
+                            VStack(alignment: .leading){
                                 Spacer()
-                                Text("Check My Grip")
-                                    .font(.system(size: 12, weight: .regular))
+                                Text("Grip Analysis")
+                                    .font(.system(size: 20, weight: .semibold))
                                     .foregroundColor(Color.white)
                                 
-                                Spacer()
-                                    .frame(width: 8)
-                                
-                                Image(systemName: "arrow.right")
+                                Text("Learn how to adjust your grip for more consistent and accurate shots. Get feedback to optimize your hold and take control of every shot")
+                                    .font(.system(size: 13, weight: .regular))
                                     .foregroundColor(Color.white)
-                                Spacer()
+                                    .multilineTextAlignment(.leading)
+                                
+                                HStack{
+                                    Spacer()
+                                    Text("Check My Grip")
+                                        .font(.system(size: 12, weight: .regular))
+                                        .foregroundColor(Color.white)
+                                    
+                                    Spacer()
+                                        .frame(width: 8)
+                                    
+                                    Image(systemName: "arrow.right")
+                                        .foregroundColor(Color.white)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 16)
                             }
-                            .padding(.vertical, 16)
+                            .padding(.horizontal, 24)
                         }
-                        .padding(.horizontal, 24)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 280)
+                        .padding(.top, 16)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 280)
-                    .padding(.top, 16)
+                    
+                    Spacer()
                 }
-                
-                Spacer()
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
         }
         .tint(Color(red: 249/255, green: 122/255, blue: 0/255))
         .orientationLock(.portrait)

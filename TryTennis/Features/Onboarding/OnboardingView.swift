@@ -22,33 +22,40 @@ struct OnboardingView: View {
                 
                 Text("Welcome to")
                     .font(.system(size: 28))
-                    .foregroundColor(Color.white)
+                    .foregroundStyle(Color.white)
                 
                 Text("Try Tennis")
                     .font(.system(size: 48, weight: .bold))
-                    .foregroundColor(Color.white)
+                    .foregroundStyle(Color.white)
 
                 Spacer()
                 
-                Button(action:{
-                    splashScreenViewModel.changeOnboarding()
-                }, label:{
-                    HStack{
-                        Spacer()
-                        Text("Start")
-                            .font(.system(size: 17, weight: .regular))
-                                  
-                        Spacer()
-                        
-                        Image(systemName: "arrow.right")
-                        Spacer()
-                    }
-                    .foregroundColor(Color.black)
-                    .frame(maxWidth: 95)
-                    .padding()
-                    .background(Color.white)
-                    .cornerRadius(99)
-                })
+                VStack(alignment: .center){
+                    Text("A new court for your tennis adventure")
+                        .foregroundStyle(Color.white)
+                        .font(.system(size: 17, weight: .regular))
+                    
+                    Button(action:{
+                        splashScreenViewModel.changeOnboarding()
+                    }, label:{
+                        HStack{
+                            Spacer()
+                            Text("Start")
+                                .font(.system(size: 17, weight: .regular))
+                                      
+                            Spacer()
+                            
+                            Image(systemName: "arrow.right")
+                            Spacer()
+                        }
+                        .foregroundStyle(Color.black)
+                        .frame(maxWidth: 95)
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(99)
+                    })
+                }
+                .padding(.bottom)
             }
         }
     }
