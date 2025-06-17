@@ -17,39 +17,12 @@ struct LiveAnalysisView: View {
                         CameraPreview(cameraService: cameraService)
                             .ignoresSafeArea()
                         
-                        // Top bar with Watch Connectivity (left) and Statistics (right)
+                        // Top bar with Statistics (right)
                         VStack {
                             HStack {
-                                // Watch Connectivity Status (top left)
-                                HStack(spacing: 8) {
-                                    Circle()
-                                        .fill(getWatchStatusColor())
-                                        .frame(width: 8, height: 8)
-                                    
-                                    Text(getWatchStatusText())
-                                        .font(.caption)
-                                        .foregroundColor(.white)
-                                    
-                                    if watchConnectivity.connectionStatus != .connected || !watchConnectivity.isReachable {
-                                        Button("Reconnect") {
-                                            watchConnectivity.forceReconnect()
-                                        }
-                                        .font(.caption)
-                                        .foregroundColor(.blue)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(.ultraThinMaterial)
-                                        .cornerRadius(4)
-                                    }
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(.ultraThinMaterial)
-                                .cornerRadius(8)
                                 
                                 Spacer()
-                                
-                                // Statistics Panel (top right)
+                                         // Statistics Panel (top right)
                                 HStack(spacing: 16) {
                                     // Successful Shots
                                     VStack(spacing: 4) {
@@ -214,31 +187,6 @@ struct LiveAnalysisView: View {
         }
         .onRotate { newOrientation in
             isLandscape = newOrientation.isLandscape
-        }
-    }
-    
-    // Helper functions for watch status
-    private func getWatchStatusColor() -> Color {
-        if watchConnectivity.connectionStatus == .connected && watchConnectivity.isReachable {
-            return .green
-        } else if watchConnectivity.connectionStatus == .connected {
-            return .orange
-        } else {
-            return .red
-        }
-    }
-    
-    private func getWatchStatusText() -> String {
-        if watchConnectivity.connectionStatus == .connected && watchConnectivity.isReachable {
-            return "Watch Connected"
-        } else if watchConnectivity.connectionStatus == .connected && !watchConnectivity.isReachable {
-            return "Watch Unavailable"
-        } else if watchConnectivity.connectionStatus == .connecting {
-            return "Connecting..."
-        } else if watchConnectivity.connectionStatus == .failed {
-            return "Watch Failed"
-        } else {
-            return "Watch Disconnected"
         }
     }
 }
