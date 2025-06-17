@@ -17,76 +17,75 @@ struct LiveAnalysisView: View {
                         CameraPreview(cameraService: cameraService)
                             .ignoresSafeArea()
                         
+                        // Top bar with Watch Connectivity (left) and Statistics (right)
                         VStack {
-                            // Watch Connectivity Status
                             HStack {
+                                // Watch Connectivity Status (top left)
                                 HStack(spacing: 8) {
                                     Circle()
-                                        .fill(watchConnectivity.connectionStatus == .connected ? Color.green : Color.red)
+                                        .fill(getWatchStatusColor())
                                         .frame(width: 8, height: 8)
                                     
-                                    Text(watchConnectivity.connectionStatus == .connected ? "Watch Connected" : "Watch Disconnected")
+                                    Text(getWatchStatusText())
                                         .font(.caption)
                                         .foregroundColor(.white)
+                                    
+                                    if watchConnectivity.connectionStatus != .connected || !watchConnectivity.isReachable {
+                                        Button("Reconnect") {
+                                            watchConnectivity.forceReconnect()
+                                        }
+                                        .font(.caption)
+                                        .foregroundColor(.blue)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(.ultraThinMaterial)
+                                        .cornerRadius(4)
+                                    }
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .background(.ultraThinMaterial)
                                 .cornerRadius(8)
                                 
-                                if watchConnectivity.connectionStatus != .connected {
-                                    Button("Reconnect") {
-                                        watchConnectivity.forceReconnect()
-                                    }
-                                    .font(.caption)
-                                    .foregroundColor(.blue)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(.ultraThinMaterial)
-                                    .cornerRadius(6)
-                                }
-                                
                                 Spacer()
-                            }
-                            .padding(.horizontal)
-                            .padding(.top, 10)
-                            
-                            // Statistics Panel
-                            HStack(spacing: 20) {
-                                // Successful Shots
-                                VStack(spacing: 4) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(.green)
-                                        .font(.system(size: 24))
-                                    Text("\(cameraService.successfulShots)")
-                                        .font(.title2)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.green)
-                                    Text("Successful")
-                                        .font(.caption)
-                                        .foregroundColor(.white.opacity(0.8))
-                                }
                                 
-                                // Failed Shots
-                                VStack(spacing: 4) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.red)
-                                        .font(.system(size: 24))
-                                    Text("\(cameraService.failedShots)")
-                                        .font(.title2)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.red)
-                                    Text("Failed")
-                                        .font(.caption)
-                                        .foregroundColor(.white.opacity(0.8))
+                                // Statistics Panel (top right)
+                                HStack(spacing: 16) {
+                                    // Successful Shots
+                                    VStack(spacing: 4) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                            .font(.system(size: 18))
+                                        Text("\(cameraService.successfulShots)")
+                                            .font(.headline)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.green)
+                                        Text("Success")
+                                            .font(.caption2)
+                                            .foregroundColor(.white.opacity(0.8))
+                                    }
+                                    
+                                    // Failed Shots
+                                    VStack(spacing: 4) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.red)
+                                            .font(.system(size: 18))
+                                        Text("\(cameraService.failedShots)")
+                                            .font(.headline)
+                                            .fontWeight(.bold)
+                                            .foregroundColor(.red)
+                                        Text("Failed")
+                                            .font(.caption2)
+                                            .foregroundColor(.white.opacity(0.8))
+                                    }
                                 }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(.ultraThinMaterial)
+                                .cornerRadius(8)
                             }
                             .padding(.horizontal, 20)
-                            .padding(.vertical, 12)
-                            .background(.ultraThinMaterial)
-                            .cornerRadius(16)
                             .padding(.top, 10)
-                            .padding(.horizontal)
                             
                             Spacer()
                         }
@@ -198,7 +197,7 @@ struct LiveAnalysisView: View {
                 Color.black.ignoresSafeArea()
                     .overlay(
                         VStack {
-                            Image(systemName: "iphone.landscape")
+                            Image(systemName: "iphone.gen3.landscape")
                                 .font(.system(size: 60))
                                 .foregroundColor(.white)
                             Text("Please rotate your device to landscape")
@@ -215,6 +214,31 @@ struct LiveAnalysisView: View {
         }
         .onRotate { newOrientation in
             isLandscape = newOrientation.isLandscape
+        }
+    }
+    
+    // Helper functions for watch status
+    private func getWatchStatusColor() -> Color {
+        if watchConnectivity.connectionStatus == .connected && watchConnectivity.isReachable {
+            return .green
+        } else if watchConnectivity.connectionStatus == .connected {
+            return .orange
+        } else {
+            return .red
+        }
+    }
+    
+    private func getWatchStatusText() -> String {
+        if watchConnectivity.connectionStatus == .connected && watchConnectivity.isReachable {
+            return "Watch Connected"
+        } else if watchConnectivity.connectionStatus == .connected && !watchConnectivity.isReachable {
+            return "Watch Unavailable"
+        } else if watchConnectivity.connectionStatus == .connecting {
+            return "Connecting..."
+        } else if watchConnectivity.connectionStatus == .failed {
+            return "Watch Failed"
+        } else {
+            return "Watch Disconnected"
         }
     }
 }

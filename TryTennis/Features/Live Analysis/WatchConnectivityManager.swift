@@ -55,6 +55,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     }
     
     func sendShotFeedback(angle: String, isSuccessful: Bool) {
+        // Check if Apple Watch is paired first
+        guard WCSession.default.isPaired else {
+            print("Apple Watch is not paired. Skipping shot feedback.")
+            return
+        }
+        
         let currentTime = Date()
         // Throttle shot feedback messages
         guard currentTime.timeIntervalSince(lastShotFeedbackTime) > shotFeedbackThrottle else {
@@ -76,6 +82,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     }
     
     func sendImmediateShotFeedback(angle: String, isSuccessful: Bool) {
+        // Check if Apple Watch is paired first
+        guard WCSession.default.isPaired else {
+            print("Apple Watch is not paired. Skipping shot feedback.")
+            return
+        }
+        
         // Throttle shot feedback to prevent overwhelming the watch
         let now = Date()
         if now.timeIntervalSince(lastShotFeedbackTime) < shotFeedbackThrottle {
@@ -104,6 +116,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     }
     
     func sendSessionEndedFeedback() {
+        // Check if Apple Watch is paired first
+        guard WCSession.default.isPaired else {
+            print("Apple Watch is not paired. Skipping session ended feedback.")
+            return
+        }
+        
         let message: [String: Any] = [
             "type": "sessionEnded",
             "timestamp": Date().timeIntervalSince1970,
@@ -114,6 +132,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     }
     
     private func sendMessage(_ message: [String: Any]) {
+        // Check if Apple Watch is paired first
+        guard WCSession.default.isPaired else {
+            print("Apple Watch is not paired. Skipping message send.")
+            return
+        }
+        
         // Dispatch to background queue to avoid UI hangs
         DispatchQueue.global(qos: .userInitiated).async {
             // Check if session is activated
@@ -299,6 +323,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         WCSession Debug Info:
         - Supported: \(WCSession.isSupported())
         - Activation State: \(session.activationState.rawValue)
+        - Is Paired: \(session.isPaired)
         - Is Reachable: \(session.isReachable)
         - Connection Status: \(connectionStatus)
         - Queue Size: \(messageQueue.count)
@@ -318,11 +343,19 @@ extension WatchConnectivityManager: WCSessionDelegate {
             } else {
                 switch activationState {
                 case .activated:
-                    self.connectionStatus = .connected
-                    self.isReachable = session.isReachable
-                    self.activationAttempts = 0
-                    print("WCSession activated successfully. Reachable: \(session.isReachable)")
-                    self.processMessageQueue()
+                    // Check if watch is paired before marking as connected
+                    if session.isPaired {
+                        self.connectionStatus = .connected
+                        self.isReachable = session.isReachable
+                        self.activationAttempts = 0
+                        print("WCSession activated successfully. Paired: \(session.isPaired), Reachable: \(session.isReachable)")
+                        self.processMessageQueue()
+                    } else {
+                        self.connectionStatus = .failed
+                        self.isReachable = false
+                        self.lastError = "Apple Watch is not paired"
+                        print("WCSession activated but Apple Watch is not paired")
+                    }
                 case .inactive:
                     self.connectionStatus = .disconnected
                     self.isReachable = false
