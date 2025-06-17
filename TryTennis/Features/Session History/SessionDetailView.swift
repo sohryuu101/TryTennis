@@ -9,6 +9,8 @@ struct SessionDetailView: View {
     @State private var showingVideoPlayer = false
     @State private var player: AVPlayer? // Player for the full video
     @State private var clipStartTime: Double = 0.0
+    @State private var videoThumbnail: UIImage? = nil
+    @State private var isLoadingVideo = false
     private let clipDuration: Double = 2.0
     
     enum AngleType: String, CaseIterable, Identifiable {
@@ -46,7 +48,10 @@ struct SessionDetailView: View {
                     // Segmented control
                     HStack(spacing: 0) {
                         ForEach(AngleType.allCases) { angle in
-                            Button(action: { selectedAngle = angle }) {
+                            Button(action: { 
+                                selectedAngle = angle
+                                loadVideoThumbnail()
+                            }) {
                                 Text(angle.rawValue)
                                     .font(.system(size: 16, weight: .semibold))
                                     .foregroundColor(selectedAngle == angle ? .black : .white)
@@ -68,8 +73,38 @@ struct SessionDetailView: View {
                         RoundedRectangle(cornerRadius: 18)
                             .fill(Color(white: 0.12))
                             .frame(height: 200)
+                        
+                        if let thumbnail = videoThumbnail {
+                            Image(uiImage: thumbnail)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(height: 200)
+                                .clipped()
+                                .cornerRadius(18)
+                                .allowsHitTesting(false)
+                        }
+                        
+                        if isLoadingVideo {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(1.5)
+                                .allowsHitTesting(false)
+                        }
+                        
+                        if !isLoadingVideo && angleTimestamp(for: selectedAngle) == nil {
+                            VStack {
+                                Image(systemName: "video.slash")
+                                    .font(.system(size: 32))
+                                    .foregroundColor(Color(white: 0.5))
+                                Text("No \(selectedAngle.rawValue.lowercased()) shot recorded")
+                                    .font(.caption)
+                                    .foregroundColor(Color(white: 0.5))
+                                    .multilineTextAlignment(.center)
+                            }
+                            .allowsHitTesting(false)
+                        }
+                        
                         Button(action: {
-                            // Play the video for the selected angle if available
                             if let ts = angleTimestamp(for: selectedAngle) {
                                 clipStartTime = ts
                                 prepareAndShowVideoPlayer()
@@ -78,11 +113,15 @@ struct SessionDetailView: View {
                             Image(systemName: "play.circle.fill")
                                 .resizable()
                                 .frame(width: 56, height: 56)
-                                .foregroundColor(Color(white: 0.8))
+                                .foregroundColor(angleTimestamp(for: selectedAngle) != nil ? Color(white: 0.8) : Color(white: 0.3))
                         }
+                        .disabled(isLoadingVideo || angleTimestamp(for: selectedAngle) == nil)
                     }
                     .padding(.horizontal)
                     .padding(.top, 16)
+                    .onAppear {
+                        loadVideoThumbnail()
+                    }
 
                     // Stats row
                     HStack(spacing: 0) {
@@ -167,6 +206,7 @@ struct SessionDetailView: View {
                         .onDisappear {
                             player.pause()
                             self.player = nil // Release player
+                            self.isLoadingVideo = false
                         }
                 }
             }
@@ -190,10 +230,13 @@ struct SessionDetailView: View {
             return
         }
         
+        isLoadingVideo = true
+        
         print("DEBUG: Attempting to fetch PHAsset with localIdentifier: \(localIdentifier)")
         let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [localIdentifier], options: nil)
         guard let phAsset = fetchResult.firstObject else {
             print("DEBUG: PHAsset not found for identifier: \(localIdentifier)")
+            isLoadingVideo = false
             return
         }
         
@@ -204,33 +247,84 @@ struct SessionDetailView: View {
         PHImageManager.default().requestPlayerItem(forVideo: phAsset, options: options) { playerItem, info in
             guard let playerItem = playerItem else {
                 print("DEBUG: Failed to get AVPlayerItem for video. Info: \(info ?? [:])")
+                DispatchQueue.main.async {
+                    self.isLoadingVideo = false
+                }
                 return
             }
+            
             DispatchQueue.main.async {
                 self.player = AVPlayer(playerItem: playerItem)
-                let seekTime = CMTime(seconds: self.clipStartTime, preferredTimescale: 600)
-                print("DEBUG: AVPlayerItem obtained. Seeking to: \(self.clipStartTime) seconds.")
-                self.player?.seek(to: seekTime) {
-                    completed in
+                
+                // Calculate clip timing: 1 second before impact, 1 second after
+                let impactTime = self.clipStartTime
+                let clipStartTime = max(0, impactTime - 1.0) // 1 second before impact
+                let clipEndTime = impactTime + 1.0 // 1 second after impact
+                
+                let seekTime = CMTime(seconds: clipStartTime, preferredTimescale: 600)
+                print("DEBUG: AVPlayerItem obtained. Seeking to: \(clipStartTime) seconds (1s before impact at \(impactTime)s).")
+                
+                self.player?.seek(to: seekTime) { completed in
                     if completed {
                         print("DEBUG: Seek completed. Starting playback.")
                         self.player?.play()
-                        // Stop playing after clipDuration
-                        let endTime = CMTime(seconds: self.clipStartTime + self.clipDuration, preferredTimescale: 600)
-                        print("DEBUG: Setting end time to: \(self.clipStartTime + self.clipDuration) seconds.")
-                        self.player?.seek(to: endTime, toleranceBefore: .zero, toleranceAfter: .zero) {
-                            completed in
-                            if completed {
-                                print("DEBUG: End seek completed. Pausing player.")
-                                self.player?.pause()
-                            }
+                        
+                        // Set up a timer to stop playback after 2 seconds
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            self.player?.pause()
+                            self.showingVideoPlayer = false
                         }
                     } else {
                         print("DEBUG: Seek failed.")
+                        self.isLoadingVideo = false
                     }
                 }
+                
                 self.showingVideoPlayer = true
+                self.isLoadingVideo = false
                 print("DEBUG: Showing video player.")
+            }
+        }
+    }
+
+    private func loadVideoThumbnail() {
+        // If no timestamp for this angle, clear thumbnail and return
+        if angleTimestamp(for: selectedAngle) == nil {
+            self.videoThumbnail = nil
+            return
+        }
+        guard let localIdentifier = viewModel.session.videoLocalIdentifier else {
+            print("DEBUG: Video local identifier not found.")
+            self.videoThumbnail = nil
+            return
+        }
+        
+        isLoadingVideo = true
+        
+        print("DEBUG: Attempting to fetch PHAsset with localIdentifier: \(localIdentifier)")
+        let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [localIdentifier], options: nil)
+        guard let phAsset = fetchResult.firstObject else {
+            print("DEBUG: PHAsset not found for identifier: \(localIdentifier)")
+            isLoadingVideo = false
+            self.videoThumbnail = nil
+            return
+        }
+        
+        print("DEBUG: PHAsset found. Requesting thumbnail...")
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .highQualityFormat
+        options.isSynchronous = false
+        
+        PHImageManager.default().requestImage(for: phAsset, targetSize: CGSize(width: 400, height: 400), contentMode: .aspectFill, options: options) { image, info in
+            DispatchQueue.main.async {
+                if let image = image {
+                    print("DEBUG: Thumbnail loaded successfully")
+                    self.videoThumbnail = image
+                } else {
+                    print("DEBUG: Failed to get thumbnail for video. Info: \(info ?? [:])")
+                    self.videoThumbnail = nil
+                }
+                self.isLoadingVideo = false
             }
         }
     }

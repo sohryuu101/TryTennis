@@ -475,9 +475,8 @@ class CameraService: NSObject, ObservableObject {
     }
 
     private func handleNewImpact() {
-        // Increment total attempts when a new impact is detected
+        // No longer increment totalAttempts here; it is now counted on left-to-right crossing
         DispatchQueue.main.async {
-            self.totalAttempts += 1
             self.currentStatus = "Shot in progress..."
         }
     }
@@ -1063,6 +1062,9 @@ class CameraService: NSObject, ObservableObject {
         let side = ballCenterX < netLineX ? "left" : "right"
         if let lastSide = lastBallSide, lastSide == "left", side == "right" {
             // Ball crossed from left to right (player to net)
+            DispatchQueue.main.async {
+                self.totalAttempts += 1
+            }
             if ballPosition.midY >= netBox.minY && ballPosition.midY <= netBox.maxY {
                 handleFailedShot(reason: "hit the net")
             } else if ballPosition.midY < netBox.minY {
