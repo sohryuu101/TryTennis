@@ -1,6 +1,4 @@
 import SwiftUI
-import CoreML
-import Vision
 
 struct GripClassifierView: View {
     @StateObject var viewModel: GripClassifierViewModel = GripClassifierViewModel()
@@ -65,7 +63,7 @@ struct GripClassifierView: View {
                         }
                         
                         Text("Here’s the example for your reference")
-                            .foregroundColor(Color.white)
+                            .foregroundStyle(Color.white)
                         
                         HStack{
                             
