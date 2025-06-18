@@ -1,10 +1,10 @@
 import AVFoundation
 import CoreML
+import Photos
 import PhotosUI
 import SwiftData
 import Vision
 import WatchConnectivity
-import Photos
 
 // Ball position tracking structure
 struct BallPosition {

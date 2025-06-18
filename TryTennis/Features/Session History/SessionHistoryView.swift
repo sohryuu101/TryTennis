@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct SessionHistoryView: View {
     @Query(sort: \Session.timestamp, order: .reverse) private var sessions: [Session]
@@ -55,7 +55,6 @@ struct SessionHistoryView: View {
                 .navigationTitle("")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.visible, for: .navigationBar)
-                .toolbarBackground(Color(red: 50 / 255.0, green: 95 / 255.0, blue: 44 / 255.0), for: .navigationBar)
                 .toolbarColorScheme(.dark, for: .navigationBar)
             }
         }

@@ -1,7 +1,7 @@
-import SwiftUI
-import SwiftData
 import AVKit
 import Photos
+import SwiftData
+import SwiftUI
 
 struct SessionDetailView: View {
     let viewModel: SessionDetailViewModel

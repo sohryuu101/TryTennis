@@ -24,7 +24,7 @@ struct GripClassifierView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(Color(red: 23 / 255, green: 23 / 255, blue: 23 / 255))
+                    .background(Color(red: 35 / 255, green: 35 / 255, blue: 35 / 255))
                     .cornerRadius(10)
                 }
                 Spacer()
@@ -105,7 +105,7 @@ struct GripClassifierView: View {
                             
                             Text(viewModel.classificationResult[1])
                                 .font(.system(size: 17, weight: .regular))
-                                .multilineTextAlignment(.center)
+                                .multilineTextAlignment(.leading)
                             Spacer()
                         }
                         .frame(maxWidth: .infinity)

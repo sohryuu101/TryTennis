@@ -29,7 +29,7 @@ struct LiveAnalysisTutorialView: View{
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(Color(red: 65 / 255, green: 65 / 255, blue: 65 / 255))
+                    .background(Color(red: 35 / 255, green: 35 / 255, blue: 35 / 255))
                     .cornerRadius(10)
                 }
                 
