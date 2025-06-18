@@ -33,9 +33,6 @@ struct LiveAnalysisView: View {
                                             .font(.headline)
                                             .fontWeight(.bold)
                                             .foregroundColor(.green)
-                                        Text("Success")
-                                            .font(.caption2)
-                                            .foregroundColor(.white.opacity(0.8))
                                     }
                                     
                                     // Failed Shots
@@ -47,9 +44,6 @@ struct LiveAnalysisView: View {
                                             .font(.headline)
                                             .fontWeight(.bold)
                                             .foregroundColor(.red)
-                                        Text("Failed")
-                                            .font(.caption2)
-                                            .foregroundColor(.white.opacity(0.8))
                                     }
                                 }
                                 .padding(.horizontal, 12)
@@ -101,26 +95,10 @@ struct LiveAnalysisView: View {
                     
                     // Right-side control panel
                     VStack(spacing: 30) {
+                        
                         Spacer()
-
-                        // Button to Reset Stats (previously Reset Stats button, now separated)
-                        Button(action: {
-                            cameraService.resetStatistics()
-                        }) {
-                            VStack(spacing: 8) {
-                                Image(systemName: "arrow.counterclockwise")
-                                    .font(.system(size: 32))
-                                    .foregroundColor(.white)
-                                Text("Reset\nStats")
-                                    .font(.caption)
-                                    .foregroundColor(.white)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding(.vertical, 12)
-                            .padding(.horizontal, 8)
-                            .background(Color.white.opacity(0.1))
-                            .cornerRadius(12)
-                        }
+                        
+                        Spacer()
                         
                         // Button to Start/Stop the processing
                         Button(action: {
@@ -129,19 +107,17 @@ struct LiveAnalysisView: View {
                             VStack(spacing: 12) {
                                 ZStack {
                                     Circle()
-                                        .fill(cameraService.isProcessing ? Color.red.opacity(0.2) : Color.white.opacity(0.1))
+                                        .fill(Color.white)
                                         .frame(width: 90, height: 90)
                                     
-                                    Image(systemName: cameraService.isProcessing ? "stop.fill" : "play.fill")
-                                        .font(.system(size: 36))
-                                        .foregroundColor(cameraService.isProcessing ? .red : .white)
+                                    Circle()
+                                        .fill(Color.black)
+                                        .frame(width: 80, height: 80)
+                                    
+                                    Image(systemName: cameraService.isProcessing ? "stop.fill" : "circle.fill")
+                                        .font(.system(size: cameraService.isProcessing ? 40 : 70))
+                                        .foregroundColor(.red)
                                 }
-                                
-                                Text(cameraService.isProcessing ? "Stop\nAnalysis" : "Start\nAnalysis")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.white)
-                                    .multilineTextAlignment(.center)
                             }
                         }
                         .disabled(!cameraService.isVideoReady)
@@ -149,7 +125,26 @@ struct LiveAnalysisView: View {
                         .scaleEffect(cameraService.isVideoReady ? 1.0 : 0.95)
                         .animation(.easeInOut(duration: 0.2), value: cameraService.isVideoReady)
                         
+                        // Button to Reset Stats (previously Reset Stats button, now separated)
+                        Button(action: {
+                            cameraService.resetStatistics()
+                        }) {
+                            VStack(spacing: 8) {
+                                Image(systemName: "arrow.counterclockwise")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.white)
+                                Text("Reset\nStats")
+                                    .font(.system(size:8))
+                                    .foregroundColor(.white)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.vertical, 12)
+                            .padding(.horizontal, 8)
+                            .cornerRadius(12)
+                        }
+                        
                         Spacer()
+                        
                     }
                     .frame(width: 120)
                     .background(

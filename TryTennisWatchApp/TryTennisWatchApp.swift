@@ -244,12 +244,14 @@ struct ContentView: View {
             
             if let feedback = connectivityManager.lastShotFeedback {
                 VStack(spacing: 12) {
-                    Image(systemName: feedback.isSuccessful ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    Image(systemName: feedback.isSuccessful ? "checkmark.circle" : "xmark.circle")
                         .foregroundColor(feedback.isSuccessful ? .green : .red)
                         .font(.system(size: 50))
-                    Text(feedback.angle)
-                        .font(.headline)
-                        .multilineTextAlignment(.center)
+                     Text(
+                         feedback.angle == "Optimal" ? "Perfect!" :
+                         (feedback.angle == "Opened" ? "Too Opened" :
+                         (feedback.angle == "Closed" ? "Too Closed" : feedback.angle))
+                     )
                     Text(feedback.isSuccessful ? "Great Shot!" : "Keep Trying")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -259,13 +261,13 @@ struct ContentView: View {
                 .animation(.easeInOut(duration: 0.3), value: feedback.id)
             } else {
                 VStack(spacing: 12) {
-                    Image(systemName: "tennis.racket")
-                        .font(.system(size: 40))
-                        .foregroundColor(.blue)
-//                    Text("Ready for shots")
-//                        .font(.headline)
-//                        .multilineTextAlignment(.center)
-                    Text("Start your session on iPhone")
+//                    Image(systemName: "tennis.racket")
+//                        .font(.system(size: 40))
+//                        .foregroundColor(.blue)
+                    Text("Live Analysis")
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                    Text("Start Live Analysis Feature in your iPhone")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -273,23 +275,24 @@ struct ContentView: View {
                 .padding()
             }
             
-            if !connectivityManager.feedbackHistory.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Recent Shots").font(.headline)
-                    ForEach(connectivityManager.feedbackHistory.suffix(5)) { feedback in
-                        HStack {
-                            Image(systemName: feedback.isSuccessful ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .foregroundColor(feedback.isSuccessful ? .green : .red)
-                                .font(.caption)
-                            Text(feedback.angle)
-                                .font(.caption)
-                                .lineLimit(1)
-                        }
-                    }
-                }
-                .padding(.top, 8)
-            }
+//            if !connectivityManager.feedbackHistory.isEmpty {
+//                VStack(alignment: .leading, spacing: 8) {
+//                    Text("Recent Shots").font(.headline)
+//                    ForEach(connectivityManager.feedbackHistory.suffix(5)) { feedback in
+//                        HStack {
+//                            Image(systemName: feedback.isSuccessful ? "checkmark.circle.fill" : "xmark.circle.fill")
+//                                .foregroundColor(feedback.isSuccessful ? .green : .red)
+//                                .font(.caption)
+//                            Text(feedback.angle)
+//                                .font(.caption)
+//                                .lineLimit(1)
+//                        }
+//                    }
+//                }
+//                .padding(.top, 8)
+//            }
         }
         .padding()
+        .background(Color("bgcolor"))
     }
 }

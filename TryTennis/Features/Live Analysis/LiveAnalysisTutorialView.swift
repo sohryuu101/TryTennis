@@ -78,7 +78,7 @@ struct LiveAnalysisTutorialView: View{
                             .cornerRadius(10)
                         }
                         
-                        Text("Here’s the example for your reference")
+                        Text("Here's the example for your reference")
                             .foregroundStyle(Color.white)
                             .font(.system(size: 16, weight: .regular))
                         
@@ -134,6 +134,9 @@ struct LiveAnalysisTutorialView: View{
             }
             .navigationTitle("Video Guide")
             .navigationBarTitleDisplayMode(.large)
+        }
+        .onAppear {
+            AppDelegate.orientation = .portrait
         }
     }
 }

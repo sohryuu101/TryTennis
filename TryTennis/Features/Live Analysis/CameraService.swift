@@ -244,6 +244,13 @@ class CameraService: NSObject, ObservableObject {
             if status == .authorized {
                 let tempURL = self.getDocumentsDirectory().appendingPathComponent("\(UUID().uuidString).mov")
                 self.recordingStartTime = CMTime.zero
+                // Force video rotation angle to landscape right (0 degrees)
+                if let connection = self.movieFileOutput.connection(with: .video) {
+                    let angle: CGFloat = 0 // Always landscape right
+                    if connection.isVideoRotationAngleSupported(angle) {
+                        connection.videoRotationAngle = angle
+                    }
+                }
                 // Start recording to a temporary file
                 self.movieFileOutput.startRecording(to: tempURL, recordingDelegate: self)
             } else {
