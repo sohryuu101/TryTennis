@@ -10,16 +10,15 @@ struct CameraPreview: UIViewRepresentable {
         previewLayer.videoGravity = .resizeAspectFill
         previewLayer.connection?.videoRotationAngle = 0
         
-        view.layer.addSublayer(previewLayer) // Add previewLayer first
+        view.layer.addSublayer(previewLayer) // previewLayer
         context.coordinator.previewLayer = previewLayer
 
-        // Add overlay view for drawing bounding boxes on top of the previewLayer
+        // overlay view for drawing bounding boxes
         let overlayView = UIView()
         overlayView.backgroundColor = .clear
         view.addSubview(overlayView)
         context.coordinator.overlayView = overlayView
         
-        // Remove statistics view and labels as they are handled in SwiftUI in LiveAnalysisView
         // Add statistics view
         // let statsView = UIView()
         // statsView.backgroundColor = UIColor.black.withAlphaComponent(0.7)
@@ -49,7 +48,7 @@ struct CameraPreview: UIViewRepresentable {
         context.coordinator.overlayView?.frame = uiView.bounds
         // context.coordinator.statsView?.frame = CGRect(x: 16, y: 16, width: 200, height: 80)
         
-        // Update statistics labels (commented out as handled by SwiftUI)
+        // Update statistics labels (
         // context.coordinator.successfulLabel?.text = "Successful: \(cameraService.successfulShots)"
         // context.coordinator.failedLabel?.text = "Failed: \(cameraService.failedShots)"
         // context.coordinator.successfulLabel?.frame = CGRect(x: 16, y: 16, width: 168, height: 20)
@@ -67,7 +66,6 @@ struct CameraPreview: UIViewRepresentable {
         var parent: CameraPreview
         var previewLayer: AVCaptureVideoPreviewLayer?
         var overlayView: UIView?
-        // Removed statsView, successfulLabel, failedLabel
         var boundingBoxLayers: [CALayer] = []
         
         init(_ parent: CameraPreview) { 
@@ -75,13 +73,12 @@ struct CameraPreview: UIViewRepresentable {
         }
         
         func updateBoundingBoxes(_ objects: [DetectedObject]) {
-            // Remove old bounding boxes
             boundingBoxLayers.forEach { $0.removeFromSuperlayer() }
             boundingBoxLayers.removeAll()
             
             guard let overlayView = overlayView else { return }
             
-            // Add new bounding boxes
+            // New bounding boxes
             for object in objects {
                 let boundingBox = object.boundingBox
                 let layer = CAShapeLayer()

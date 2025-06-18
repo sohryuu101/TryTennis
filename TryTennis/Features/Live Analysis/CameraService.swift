@@ -38,7 +38,7 @@ class CameraService: NSObject, ObservableObject {
     @Published var player: AVPlayer?
     @Published var isVideoReady = false
     
-    // Add new published properties for tracking
+    // Properties for tracking
     @Published var totalAttempts: Int = 0
     @Published var successfulShots: Int = 0
     @Published var failedShots: Int = 0
@@ -1099,7 +1099,6 @@ extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
         guard isProcessing, !isImpactProcessing else { return }
         
         frameCount += 1
-        // Skip frames for better performance
         guard frameCount % frameSkip == 0 else { return }
         
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
@@ -1138,7 +1137,7 @@ extension CameraService: AVCaptureFileOutputRecordingDelegate {
             let creationRequest = PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: outputFileURL)
             localIdentifier = creationRequest?.placeholderForCreatedAsset?.localIdentifier
         }) { [weak self] saved, error in
-            DispatchQueue.main.async { // Ensure UI updates and SwiftData operations are on main thread
+            DispatchQueue.main.async {
                 if saved {
                     self?.saveSessionData(videoLocalIdentifier: localIdentifier)
                 } else {
