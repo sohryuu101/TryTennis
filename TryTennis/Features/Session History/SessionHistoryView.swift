@@ -6,14 +6,8 @@ struct SessionHistoryView: View {
     
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color(red: 50 / 255, green: 95 / 255, blue: 44 / 255),
-                         Color(red: 5 / 255, green: 19 / 255, blue: 3 / 255),
-                         Color.black],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            Color.black
+                .ignoresSafeArea(edges: .all)
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 24) {
