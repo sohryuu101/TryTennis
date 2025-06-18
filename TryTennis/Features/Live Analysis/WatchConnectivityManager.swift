@@ -10,13 +10,15 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     
     private var messageQueue: [[String: Any]] = []
     private var retryTimer: Timer?
-    private let maxRetries = 3
+    private let maxRetries = 2
     private var retryCount = 0
-    private let retryInterval: TimeInterval = 2.0
+    private let retryInterval: TimeInterval = 1.0
     private var activationAttempts = 0
-    private let maxActivationAttempts = 5
+    private let maxActivationAttempts = 3
     private var lastShotFeedbackTime: Date = Date.distantPast
-    private let shotFeedbackThrottle: TimeInterval = 0.5 // Minimum 500ms between shots
+    private let shotFeedbackThrottle: TimeInterval = 0.3
+    private var connectionHealthTimer: Timer?
+    private var lastSuccessfulMessageTime: Date = Date.distantPast
     
     enum ConnectionStatus {
         case disconnected
@@ -29,6 +31,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         super.init()
         setupWatchConnectivity()
         setupNotifications()
+        startConnectionHealthMonitoring()
     }
     
     private func setupWatchConnectivity() {
@@ -54,15 +57,29 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
     }
     
+    private func startConnectionHealthMonitoring() {
+        connectionHealthTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            self?.checkConnectionHealth()
+        }
+    }
+    
+    private func checkConnectionHealth() {
+        let session = WCSession.default
+        let timeSinceLastSuccess = Date().timeIntervalSince(lastSuccessfulMessageTime)
+        
+        if timeSinceLastSuccess > 30 && session.activationState == .activated && !session.isReachable {
+            print("Connection health check: No successful messages in 30s, attempting reconnection")
+            forceReconnect()
+        }
+    }
+    
     func sendShotFeedback(angle: String, isSuccessful: Bool) {
-        // Check if Apple Watch is paired first
         guard WCSession.default.isPaired else {
             print("Apple Watch is not paired. Skipping shot feedback.")
             return
         }
         
         let currentTime = Date()
-        // Throttle shot feedback messages
         guard currentTime.timeIntervalSince(lastShotFeedbackTime) > shotFeedbackThrottle else {
             print("Shot feedback throttled")
             return
@@ -82,13 +99,11 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     }
     
     func sendImmediateShotFeedback(angle: String, isSuccessful: Bool) {
-        // Check if Apple Watch is paired first
         guard WCSession.default.isPaired else {
             print("Apple Watch is not paired. Skipping shot feedback.")
             return
         }
         
-        // Throttle shot feedback to prevent overwhelming the watch
         let now = Date()
         if now.timeIntervalSince(lastShotFeedbackTime) < shotFeedbackThrottle {
             print("Shot feedback throttled - too soon since last feedback")
@@ -106,17 +121,10 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         
         print("Sending immediate shot feedback: \(angle), successful: \(isSuccessful)")
         
-        // Skip queue and send immediately if session is activated
-        if WCSession.default.activationState == .activated {
-            sendMessageToWatch(message)
-        } else {
-            // Still queue if session not activated
-            sendMessage(message)
-        }
+        sendMessageOptimized(message)
     }
     
     func sendSessionEndedFeedback() {
-        // Check if Apple Watch is paired first
         guard WCSession.default.isPaired else {
             print("Apple Watch is not paired. Skipping session ended feedback.")
             return
@@ -132,15 +140,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     }
     
     private func sendMessage(_ message: [String: Any]) {
-        // Check if Apple Watch is paired first
         guard WCSession.default.isPaired else {
             print("Apple Watch is not paired. Skipping message send.")
             return
         }
         
-        // Dispatch to background queue to avoid UI hangs
         DispatchQueue.global(qos: .userInitiated).async {
-            // Check if session is activated
             guard WCSession.default.activationState == .activated else {
                 print("WCSession not activated. Current state: \(WCSession.default.activationState.rawValue)")
                 DispatchQueue.main.async {
@@ -148,7 +153,6 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                     print("Message queued. Queue size: \(self.messageQueue.count)")
                 }
                 
-                // Try to activate session if not already attempting
                 if self.activationAttempts < self.maxActivationAttempts {
                     DispatchQueue.main.async {
                         self.activationAttempts += 1
@@ -159,79 +163,69 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 return
             }
             
-            // For shot feedback, be more aggressive about delivery
-            if let messageType = message["type"] as? String, messageType == "shotFeedback" {
-                print("Processing shot feedback - reachable: \(WCSession.default.isReachable)")
-                if WCSession.default.isReachable {
-                    self.sendMessageToWatch(message)
-                } else {
-                    // Use alternative delivery immediately if not reachable
-                    print("Watch not reachable, using alternative delivery")
-                    self.tryAlternativeDelivery(message: message)
-                }
-            } else if WCSession.default.isReachable {
-                // For other messages, only send if reachable
-                self.sendMessageToWatch(message)
+            self.sendMessageOptimized(message)
+        }
+    }
+    
+    private func sendMessageOptimized(_ message: [String: Any]) {
+        let session = WCSession.default
+        
+        if let messageType = message["type"] as? String, messageType == "shotFeedback" {
+            if session.isReachable {
+                sendMessageToWatch(message)
             } else {
-                // Queue message for later delivery
-                DispatchQueue.main.async {
-                    self.messageQueue.append(message)
-                    print("Message queued. Queue size: \(self.messageQueue.count)")
-                    print("Watch reachable: \(WCSession.default.isReachable), Connection status: \(self.connectionStatus)")
-                    
-                    // Try to send queued messages
-                    self.processMessageQueue()
-                }
+                useQueuedDelivery(message: message)
             }
+        } else {
+            if session.isReachable {
+                sendMessageToWatch(message)
+            } else {
+                useQueuedDelivery(message: message)
+            }
+        }
+    }
+    
+    private func useQueuedDelivery(message: [String: Any]) {
+        WCSession.default.transferUserInfo(message)
+        print("Message queued via transferUserInfo")
+        
+        do {
+            try WCSession.default.updateApplicationContext(message)
+            print("Message sent via application context")
+        } catch {
+            print("Failed to send via application context: \(error.localizedDescription)")
         }
     }
     
     private func sendMessageToWatch(_ message: [String: Any]) {
         print("Attempting to send message to watch: \(message)")
         
-        // Try using sendMessage first (requires reachable watch)
         WCSession.default.sendMessage(message, replyHandler: { reply in
             print("Message sent successfully to watch. Reply: \(reply)")
             
-            // Check if watch responded with an error
+            DispatchQueue.main.async {
+                self.lastSuccessfulMessageTime = Date()
+                self.retryCount = 0
+                self.activationAttempts = 0
+            }
+            
             if let status = reply["status"] as? String, status == "error" {
                 print("Watch responded with error status")
                 if let errorMessage = reply["message"] as? String {
                     print("Watch error message: \(errorMessage)")
                 }
             }
-            
-            self.retryCount = 0
-            self.activationAttempts = 0 // Reset activation attempts on success
         }) { error in
             print("Error sending message to watch: \(error.localizedDescription)")
             print("Error code: \((error as NSError).code)")
             
-            // For shot feedback, try alternative delivery methods
             if let messageType = message["type"] as? String, messageType == "shotFeedback" {
                 print("Trying alternative delivery for shot feedback")
-                self.tryAlternativeDelivery(message: message)
+                self.useQueuedDelivery(message: message)
             } else {
                 self.handleSendError(message: message, error: error)
             }
         }
-    }
-    
-    private func tryAlternativeDelivery(message: [String: Any]) {
-        // Try using transferUserInfo first (queued delivery)
-        WCSession.default.transferUserInfo(message)
-        print("Shot feedback queued via transferUserInfo")
-        
-        // Also try application context for immediate state update
-        do {
-            try WCSession.default.updateApplicationContext(message)
-            print("Shot feedback sent via application context")
-        } catch {
-            print("Failed to send via application context: \(error.localizedDescription)")
-        }
-        
-        // As last resort, send local notification
-        sendLocalNotification(for: message)
     }
     
     private func handleSendError(message: [String: Any], error: Error) {
@@ -246,8 +240,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             print("Failed to send message after \(maxRetries) attempts")
             retryCount = 0
             
-            // Send local notification as fallback
-            sendLocalNotification(for: message)
+            useQueuedDelivery(message: message)
         }
     }
     
@@ -255,16 +248,14 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         guard !messageQueue.isEmpty else { return }
         
         if WCSession.default.activationState == .activated {
-            // Send all queued messages when session is activated
             let messagesToSend = messageQueue
             messageQueue.removeAll()
             
             print("Processing \(messagesToSend.count) queued messages")
             for message in messagesToSend {
-                sendMessageToWatch(message)
+                sendMessageOptimized(message)
             }
         } else {
-            // Schedule retry with shorter interval for responsiveness
             if retryTimer == nil {
                 retryTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { _ in
                     self.retryTimer = nil
@@ -313,7 +304,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         print("Force reconnecting WCSession...")
         activationAttempts = 0
         connectionStatus = .connecting
-        clearMessageQueue() // Clear any stale messages
+        clearMessageQueue()
         WCSession.default.activate()
     }
     
@@ -329,7 +320,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         - Queue Size: \(messageQueue.count)
         - Activation Attempts: \(activationAttempts)
         - Last Error: \(lastError ?? "None")
+        - Time Since Last Success: \(Date().timeIntervalSince(lastSuccessfulMessageTime).rounded())s
         """
+    }
+    
+    deinit {
+        connectionHealthTimer?.invalidate()
     }
 }
 
@@ -343,7 +339,6 @@ extension WatchConnectivityManager: WCSessionDelegate {
             } else {
                 switch activationState {
                 case .activated:
-                    // Check if watch is paired before marking as connected
                     if session.isPaired {
                         self.connectionStatus = .connected
                         self.isReachable = session.isReachable
@@ -378,7 +373,6 @@ extension WatchConnectivityManager: WCSessionDelegate {
             self.isReachable = session.isReachable
             print("Watch reachability changed: \(session.isReachable)")
             
-            // Only process queue if we became reachable (not when we lose reachability)
             if session.isReachable && !wasReachable {
                 print("Watch became reachable, processing queued messages")
                 self.processMessageQueue()

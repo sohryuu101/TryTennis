@@ -3,6 +3,11 @@ import SwiftData
 
 struct SessionHistoryView: View {
     @Query(sort: \Session.timestamp, order: .reverse) private var sessions: [Session]
+    @StateObject private var viewModel: SessionHistoryViewModel
+    
+    init() {
+        _viewModel = StateObject(wrappedValue: SessionHistoryViewModel(sessions: []))
+    }
     
     var body: some View {
         ZStack {
@@ -23,34 +28,34 @@ struct SessionHistoryView: View {
                         .padding(.top, 8)
 
                     // Today
-                    if !todaySessions.isEmpty {
+                    if !viewModel.todaySessions.isEmpty {
                         Text("Today")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(Color.white)
                             .padding(.top, 8)
-                        ForEach(todaySessions) { session in
+                        ForEach(viewModel.todaySessions) { session in
                             SessionHistoryRow(session: session, showTime: true)
                         }
                     }
 
                     // Past 7 Days
-                    if !past7DaysSessions.isEmpty {
+                    if !viewModel.past7DaysSessions.isEmpty {
                         Text("Past 7 Days")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(Color.white)
                             .padding(.top, 8)
-                        ForEach(past7DaysSessions) { session in
+                        ForEach(viewModel.past7DaysSessions) { session in
                             SessionHistoryRow(session: session, showTime: false)
                         }
                     }
 
                     // Past 12 Months
-                    if !past12MonthsSessions.isEmpty {
+                    if !viewModel.past12MonthsSessions.isEmpty {
                         Text("Past 12 Months")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(Color.white)
                             .padding(.top, 8)
-                        ForEach(past12MonthsSessions) { session in
+                        ForEach(viewModel.past12MonthsSessions) { session in
                             SessionHistoryRow(session: session, showTime: false)
                         }
                     }
@@ -65,26 +70,11 @@ struct SessionHistoryView: View {
                 .toolbarColorScheme(.dark, for: .navigationBar)
             }
         }
-    }
-    
-    // Helper computed properties for grouping
-    private var todaySessions: [Session] {
-        let calendar = Calendar.current
-        return sessions.filter { calendar.isDateInToday($0.timestamp) }
-    }
-    private var past7DaysSessions: [Session] {
-        let calendar = Calendar.current
-        return sessions.filter {
-            !calendar.isDateInToday($0.timestamp) &&
-            (calendar.dateComponents([.day], from: $0.timestamp, to: Date()).day ?? 8) < 7
+        .onChange(of: sessions) { newSessions in
+            viewModel.sessions = newSessions
         }
-    }
-    private var past12MonthsSessions: [Session] {
-        let calendar = Calendar.current
-        return sessions.filter {
-            !(calendar.isDateInToday($0.timestamp) ||
-              (calendar.dateComponents([.day], from: $0.timestamp, to: Date()).day ?? 400) < 7) &&
-            (calendar.dateComponents([.month], from: $0.timestamp, to: Date()).month ?? 13) < 12
+        .onAppear {
+            viewModel.sessions = sessions
         }
     }
 }
