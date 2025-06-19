@@ -8,7 +8,7 @@ struct SplashScreenView: View{
     var body: some View{
         if viewModel.isSplashScreenActive {
             ZStack{
-                Color(red: 10 / 255, green: 44 / 255, blue: 6 / 255)
+                Color.black
                     .ignoresSafeArea(edges: .all)
                 
                 VStack(alignment: .center, spacing: 10){
@@ -19,7 +19,7 @@ struct SplashScreenView: View{
                         
                         Text("TryTennis")
                             .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(Color(red: 249/255, green: 122/255, blue: 0/255))
+                            .foregroundStyle(Color(red: 249/255, green: 122/255, blue: 0/255))
                     }
                     .scaleEffect(size)
                     .opacity(opacity)
@@ -35,11 +35,7 @@ struct SplashScreenView: View{
                 }
             }
         } else {
-            if !viewModel.isOnboardingActive {
-                MainView()
-            } else {
-                OnboardingView(splashScreenViewModel: viewModel)
-            }
+            MainView()
         }
     }
 }

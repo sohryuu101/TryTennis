@@ -1,11 +1,10 @@
-import SwiftUI
 import AVFoundation
-import Vision
 import CoreML
+import Photos
 import PhotosUI
 import SwiftData
+import Vision
 import WatchConnectivity
-import Photos
 
 // Ball position tracking structure
 struct BallPosition {
@@ -39,7 +38,7 @@ class CameraService: NSObject, ObservableObject {
     @Published var player: AVPlayer?
     @Published var isVideoReady = false
     
-    // Add new published properties for tracking
+    // Properties for tracking
     @Published var totalAttempts: Int = 0
     @Published var successfulShots: Int = 0
     @Published var failedShots: Int = 0
@@ -476,9 +475,8 @@ class CameraService: NSObject, ObservableObject {
     }
 
     private func handleNewImpact() {
-        // Increment total attempts when a new impact is detected
+        // No longer increment totalAttempts here; it is now counted on left-to-right crossing
         DispatchQueue.main.async {
-            self.totalAttempts += 1
             self.currentStatus = "Shot in progress..."
         }
     }
@@ -1064,6 +1062,9 @@ class CameraService: NSObject, ObservableObject {
         let side = ballCenterX < netLineX ? "left" : "right"
         if let lastSide = lastBallSide, lastSide == "left", side == "right" {
             // Ball crossed from left to right (player to net)
+            DispatchQueue.main.async {
+                self.totalAttempts += 1
+            }
             if ballPosition.midY >= netBox.minY && ballPosition.midY <= netBox.maxY {
                 handleFailedShot(reason: "hit the net")
             } else if ballPosition.midY < netBox.minY {
@@ -1098,7 +1099,6 @@ extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
         guard isProcessing, !isImpactProcessing else { return }
         
         frameCount += 1
-        // Skip frames for better performance
         guard frameCount % frameSkip == 0 else { return }
         
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
@@ -1137,7 +1137,7 @@ extension CameraService: AVCaptureFileOutputRecordingDelegate {
             let creationRequest = PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: outputFileURL)
             localIdentifier = creationRequest?.placeholderForCreatedAsset?.localIdentifier
         }) { [weak self] saved, error in
-            DispatchQueue.main.async { // Ensure UI updates and SwiftData operations are on main thread
+            DispatchQueue.main.async {
                 if saved {
                     self?.saveSessionData(videoLocalIdentifier: localIdentifier)
                 } else {

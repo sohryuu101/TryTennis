@@ -1,112 +1,203 @@
-import SwiftUI
-import SwiftData
 import AVKit
 import Photos
+import SwiftData
+import SwiftUI
 
 struct SessionDetailView: View {
-    @Environment(SessionDetailViewModel.self) private var viewModel: SessionDetailViewModel
+    let viewModel: SessionDetailViewModel
+    @State private var selectedAngle: AngleType = .best
     @State private var showingVideoPlayer = false
     @State private var player: AVPlayer? // Player for the full video
     @State private var clipStartTime: Double = 0.0
+    @State private var videoThumbnail: UIImage? = nil
+    @State private var isLoadingVideo = false
     private let clipDuration: Double = 2.0
+    
+    enum AngleType: String, CaseIterable, Identifiable {
+        case best = "Best Angle"
+        case opened = "Too Opened"
+        case closed = "Too Closed"
+        var id: String { rawValue }
+    }
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color(red: 5 / 255, green: 19 / 255, blue: 3 / 255),
-                         Color(red: 8 / 255, green: 34 / 255, blue: 5 / 255)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-
+            Color.black.ignoresSafeArea()
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text(viewModel.session.timestamp, format: .dateTime.month(.abbreviated).day().year().hour().minute())
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                    
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Image(systemName: "arrow.counterclockwise")
-                                .foregroundColor(.white)
-                            Text("Total Attempts: ")
-                                .foregroundColor(.white.opacity(0.8))
-                            Text("\(viewModel.session.totalAttempts)")
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
+                VStack(alignment: .leading, spacing: 0) {
+                    // Date and time row
+                    HStack {
+                        Text(viewModel.session.timestamp.formatted(.dateTime.month(.wide).day().year()))
+                            .font(.subheadline)
+                            .foregroundColor(Color(white: 0.7))
+                        Spacer()
+                        Text(viewModel.session.timestamp.formatted(.dateTime.hour().minute()))
+                            .font(.subheadline)
+                            .foregroundColor(Color(white: 0.7))
+                    }
+                    .padding(.top, 8)
+                    .padding(.horizontal)
+
+                    // Title
+                    Text("Your Racquet Head Angle")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(Color(red: 220/255, green: 243/255, blue: 220/255))
+                        .padding(.horizontal)
+                        .padding(.top, 2)
+
+                    // Segmented control
+                    HStack(spacing: 0) {
+                        ForEach(AngleType.allCases) { angle in
+                            Button(action: { 
+                                selectedAngle = angle
+                                loadVideoThumbnail()
+                            }) {
+                                Text(angle.rawValue)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(selectedAngle == angle ? .black : .white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(selectedAngle == angle ? Color.white : Color.clear)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                    }
+                    .background(
+                        Capsule().fill(Color.white.opacity(0.08))
+                    )
+                    .padding(.horizontal)
+                    .padding(.top, 12)
+
+                    // Video preview
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 18)
+                            .fill(Color(white: 0.12))
+                            .frame(height: 200)
+                        
+                        if let thumbnail = videoThumbnail {
+                            Image(uiImage: thumbnail)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(height: 200)
+                                .clipped()
+                                .cornerRadius(18)
+                                .allowsHitTesting(false)
                         }
                         
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text("Successful Shots: ")
-                                .foregroundColor(.white.opacity(0.8))
+                        if isLoadingVideo {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(1.5)
+                                .allowsHitTesting(false)
+                        }
+                        
+                        if !isLoadingVideo && angleTimestamp(for: selectedAngle) == nil {
+                            VStack {
+                                Image(systemName: "video.slash")
+                                    .font(.system(size: 32))
+                                    .foregroundColor(Color(white: 0.5))
+                                Text("No \(selectedAngle.rawValue.lowercased()) shot recorded")
+                                    .font(.caption)
+                                    .foregroundColor(Color(white: 0.5))
+                                    .multilineTextAlignment(.center)
+                            }
+                            .allowsHitTesting(false)
+                        }
+                        
+                        Button(action: {
+                            if let ts = angleTimestamp(for: selectedAngle) {
+                                clipStartTime = ts
+                                prepareAndShowVideoPlayer()
+                            }
+                        }) {
+                            Image(systemName: "play.circle.fill")
+                                .resizable()
+                                .frame(width: 56, height: 56)
+                                .foregroundColor(angleTimestamp(for: selectedAngle) != nil ? Color(white: 0.8) : Color(white: 0.3))
+                        }
+                        .disabled(isLoadingVideo || angleTimestamp(for: selectedAngle) == nil)
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 16)
+                    .onAppear {
+                        loadVideoThumbnail()
+                    }
+
+                    // Stats row
+                    HStack(spacing: 0) {
+                        VStack {
                             Text("\(viewModel.session.successfulShots)")
-                                .fontWeight(.semibold)
-                                .foregroundColor(.green)
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(Color.orange)
+                            Text("SUCCESS")
+                                .font(.caption)
+                                .foregroundColor(Color.orange)
                         }
-                        
-                        HStack {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.red)
-                            Text("Failed Shots: ")
-                                .foregroundColor(.white.opacity(0.8))
+                        .frame(maxWidth: .infinity)
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color(white: 0.12))
+                                .frame(height: 56)
+                            VStack {
+                                Text("\(viewModel.session.totalAttempts)")
+                                    .font(.system(size: 24, weight: .bold))
+                                    .foregroundColor(.white)
+                                Text("TOTAL ATTEMPTS")
+                                    .font(.caption)
+                                    .foregroundColor(Color.orange)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        VStack {
                             Text("\(viewModel.session.failedShots)")
-                                .fontWeight(.semibold)
-                                .foregroundColor(.red)
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(Color.orange)
+                            Text("FAIL")
+                                .font(.caption)
+                                .foregroundColor(Color.orange)
                         }
+                        .frame(maxWidth: .infinity)
                     }
-                    .padding()
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(15)
-                    
-                    // Video Clips Section
-                    VStack(alignment: .leading, spacing: 15) {
-                        Text("Racquet Angle Clips")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        
-                        if let optimalTimestamp = viewModel.session.optimalRacquetTimestamp {
-                            ClipButton(title: "Optimal Angle", color: .green) {
-                                clipStartTime = optimalTimestamp
-                                prepareAndShowVideoPlayer()
-                            }
+                    .padding(.horizontal)
+                    .padding(.top, 18)
+
+                    // About section
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("About Racquet Head Angle")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(Color(red: 220/255, green: 243/255, blue: 220/255))
+                            .padding(.top, 24)
+                            .padding(.horizontal)
+                        Image("racquet_angle_info")
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 140)
+                            .clipped()
+                            .cornerRadius(20)
+                            .padding(.horizontal)
+                            .padding(.top, 12)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Learn About Racquet Head Angle")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(Color(red: 220/255, green: 243/255, blue: 220/255))
+                            Text("How the angle of your racquet face impacts your shots and how to improve yours.")
+                                .font(.system(size: 15))
+                                .foregroundColor(.white)
                         }
-                        
-                        if let openTimestamp = viewModel.session.openRacquetTimestamp {
-                            ClipButton(title: "Open Angle", color: .orange) {
-                                clipStartTime = openTimestamp
-                                prepareAndShowVideoPlayer()
-                            }
-                        }
-                        
-                        if let closedTimestamp = viewModel.session.closedRacquetTimestamp {
-                            ClipButton(title: "Closed Angle", color: .red) {
-                                clipStartTime = closedTimestamp
-                                prepareAndShowVideoPlayer()
-                            }
-                        }
-                        
-                        if viewModel.session.optimalRacquetTimestamp == nil &&
-                           viewModel.session.openRacquetTimestamp == nil &&
-                           viewModel.session.closedRacquetTimestamp == nil {
-                            Text("No clips available for this session")
-                                .foregroundColor(.white.opacity(0.6))
-                                .italic()
-                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 18)
                     }
-                    .padding()
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(15)
+                    .background(Color(white: 0.12))
+                    .cornerRadius(24)
+                    .padding(.horizontal)
+                    .padding(.top, 24)
+                    .padding(.bottom, 32)
                 }
-                .padding()
             }
-            .navigationTitle("Session Details")
+            .navigationTitle("Session Detail")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarBackground(Color(red: 50 / 255.0, green: 95 / 255.0, blue: 44 / 255.0), for: .navigationBar)
+            .toolbarBackground(Color.black, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .sheet(isPresented: $showingVideoPlayer) {
                 if let player = player {
@@ -115,9 +206,21 @@ struct SessionDetailView: View {
                         .onDisappear {
                             player.pause()
                             self.player = nil // Release player
+                            self.isLoadingVideo = false
                         }
                 }
             }
+        }
+    }
+
+    private func angleTimestamp(for angle: AngleType) -> Double? {
+        switch angle {
+        case .best:
+            return viewModel.session.optimalRacquetTimestamp
+        case .opened:
+            return viewModel.session.openRacquetTimestamp
+        case .closed:
+            return viewModel.session.closedRacquetTimestamp
         }
     }
     
@@ -127,10 +230,13 @@ struct SessionDetailView: View {
             return
         }
         
+        isLoadingVideo = true
+        
         print("DEBUG: Attempting to fetch PHAsset with localIdentifier: \(localIdentifier)")
         let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [localIdentifier], options: nil)
         guard let phAsset = fetchResult.firstObject else {
             print("DEBUG: PHAsset not found for identifier: \(localIdentifier)")
+            isLoadingVideo = false
             return
         }
         
@@ -141,33 +247,84 @@ struct SessionDetailView: View {
         PHImageManager.default().requestPlayerItem(forVideo: phAsset, options: options) { playerItem, info in
             guard let playerItem = playerItem else {
                 print("DEBUG: Failed to get AVPlayerItem for video. Info: \(info ?? [:])")
+                DispatchQueue.main.async {
+                    self.isLoadingVideo = false
+                }
                 return
             }
+            
             DispatchQueue.main.async {
                 self.player = AVPlayer(playerItem: playerItem)
-                let seekTime = CMTime(seconds: self.clipStartTime, preferredTimescale: 600)
-                print("DEBUG: AVPlayerItem obtained. Seeking to: \(self.clipStartTime) seconds.")
-                self.player?.seek(to: seekTime) {
-                    completed in
+                
+                // Calculate clip timing: 1 second before impact, 1 second after
+                let impactTime = self.clipStartTime
+                let clipStartTime = max(0, impactTime - 1.0) // 1 second before impact
+                let clipEndTime = impactTime + 1.0 // 1 second after impact
+                
+                let seekTime = CMTime(seconds: clipStartTime, preferredTimescale: 600)
+                print("DEBUG: AVPlayerItem obtained. Seeking to: \(clipStartTime) seconds (1s before impact at \(impactTime)s).")
+                
+                self.player?.seek(to: seekTime) { completed in
                     if completed {
                         print("DEBUG: Seek completed. Starting playback.")
                         self.player?.play()
-                        // Stop playing after clipDuration
-                        let endTime = CMTime(seconds: self.clipStartTime + self.clipDuration, preferredTimescale: 600)
-                        print("DEBUG: Setting end time to: \(self.clipStartTime + self.clipDuration) seconds.")
-                        self.player?.seek(to: endTime, toleranceBefore: .zero, toleranceAfter: .zero) {
-                            completed in
-                            if completed {
-                                print("DEBUG: End seek completed. Pausing player.")
-                                self.player?.pause()
-                            }
+                        
+                        // Set up a timer to stop playback after 2 seconds
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            self.player?.pause()
+                            self.showingVideoPlayer = false
                         }
                     } else {
                         print("DEBUG: Seek failed.")
+                        self.isLoadingVideo = false
                     }
                 }
+                
                 self.showingVideoPlayer = true
+                self.isLoadingVideo = false
                 print("DEBUG: Showing video player.")
+            }
+        }
+    }
+
+    private func loadVideoThumbnail() {
+        // If no timestamp for this angle, clear thumbnail and return
+        if angleTimestamp(for: selectedAngle) == nil {
+            self.videoThumbnail = nil
+            return
+        }
+        guard let localIdentifier = viewModel.session.videoLocalIdentifier else {
+            print("DEBUG: Video local identifier not found.")
+            self.videoThumbnail = nil
+            return
+        }
+        
+        isLoadingVideo = true
+        
+        print("DEBUG: Attempting to fetch PHAsset with localIdentifier: \(localIdentifier)")
+        let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: [localIdentifier], options: nil)
+        guard let phAsset = fetchResult.firstObject else {
+            print("DEBUG: PHAsset not found for identifier: \(localIdentifier)")
+            isLoadingVideo = false
+            self.videoThumbnail = nil
+            return
+        }
+        
+        print("DEBUG: PHAsset found. Requesting thumbnail...")
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .highQualityFormat
+        options.isSynchronous = false
+        
+        PHImageManager.default().requestImage(for: phAsset, targetSize: CGSize(width: 400, height: 400), contentMode: .aspectFill, options: options) { image, info in
+            DispatchQueue.main.async {
+                if let image = image {
+                    print("DEBUG: Thumbnail loaded successfully")
+                    self.videoThumbnail = image
+                } else {
+                    print("DEBUG: Failed to get thumbnail for video. Info: \(info ?? [:])")
+                    self.videoThumbnail = nil
+                }
+                self.isLoadingVideo = false
             }
         }
     }
@@ -198,7 +355,6 @@ struct ClipButton: View {
 
 #Preview {
     let exampleSession = Session(timestamp: Date(), totalAttempts: 10, successfulShots: 7, failedShots: 3)
-    return SessionDetailView()
-        .environment(SessionDetailViewModel(session: exampleSession))
+    return SessionDetailView(viewModel: SessionDetailViewModel(session: exampleSession))
         .modelContainer(for: Session.self, inMemory: true)
 } 

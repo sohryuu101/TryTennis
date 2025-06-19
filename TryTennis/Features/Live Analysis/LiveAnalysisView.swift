@@ -1,6 +1,6 @@
-import SwiftUI
 import PhotosUI
 import SwiftData
+import SwiftUI
 
 struct LiveAnalysisView: View {
     @StateObject private var cameraService = CameraService()

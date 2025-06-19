@@ -62,9 +62,9 @@
 			path = TryTennis;
 			sourceTree = "<group>";
 		};
-		817DD5092E00BC3D0059B377 /* TryTennisWatch Watch App */ = {
+		817DD5092E00BC3D0059B377 /* TryTennisWatchApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "TryTennisWatch Watch App";
+			path = TryTennisWatchApp;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -92,7 +92,7 @@
 			isa = PBXGroup;
 			children = (
 				79B638CE2DF97F98003D8EA8 /* TryTennis */,
-				817DD5092E00BC3D0059B377 /* TryTennisWatch Watch App */,
+				817DD5092E00BC3D0059B377 /* TryTennisWatchApp */,
 				79B638CD2DF97F98003D8EA8 /* Products */,
 				792A9C882DFAD0E10083BE0B /* .gitignore */,
 				817DD51B2E00BF500059B377 /* Frameworks */,
@@ -156,7 +156,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				817DD5092E00BC3D0059B377 /* TryTennisWatch Watch App */,
+				817DD5092E00BC3D0059B377 /* TryTennisWatchApp */,
 			);
 			name = "TryTennisWatch Watch App";
 			packageProductDependencies = (
