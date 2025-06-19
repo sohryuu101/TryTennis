@@ -6,6 +6,8 @@ import Vision
 import WatchConnectivity
 import Photos
 
+// DEBUG: Proximity threshold loosened, angle confidence threshold lowered, and debug logging added for angle detection and timestamp setting.
+
 // Ball position tracking structure
 struct BallPosition {
     let center: CGPoint
@@ -150,13 +152,35 @@ class CameraService: NSObject, ObservableObject {
     private var angleResultHistory: [String] = [] // For robust angle detection
     private let angleResultHistoryLength = 5
     private let angleResultConsensus = 3 // Require 3/5 agreement
-    private let angleConfidenceThreshold: Float = 0.7 // Only accept high-confidence angle results
+    private let angleConfidenceThreshold: Float = 0.5 // Only accept high-confidence angle results
     
     // --- Net crossing logic from robust branch ---
     private var netBox: CGRect? = nil
     private var netDetectionFrames = 0
     private let netDetectionMaxFrames = 10
     private var lastBallSide: String? = nil // "left" or "right"
+    
+    @Published var isBodyPoseDetected: Bool = true {
+        didSet {
+            if !isBodyPoseDetected && oldValue == true {
+                let now = Date()
+                if lastNotInFrameSent == nil || now.timeIntervalSince(lastNotInFrameSent!) > notInFrameCooldown {
+                    WatchConnectivityManager.shared.sendNotInFrameFeedback()
+                    lastNotInFrameSent = now
+                }
+            } else if isBodyPoseDetected && oldValue == false {
+                let now = Date()
+                if lastBackInFrameSent == nil || now.timeIntervalSince(lastBackInFrameSent!) > notInFrameCooldown {
+                    WatchConnectivityManager.shared.sendBackInFrameFeedback()
+                    lastBackInFrameSent = now
+                }
+            }
+        }
+    }
+    
+    private var lastNotInFrameSent: Date? = nil
+    private var lastBackInFrameSent: Date? = nil
+    private let notInFrameCooldown: TimeInterval = 3.0 // seconds
     
     override init() {
         super.init()
@@ -374,11 +398,15 @@ class CameraService: NSObject, ObservableObject {
     }
     
     private func processPoseDetection(for request: VNRequest, error: Error?) {
-        guard let results = request.results as? [VNHumanBodyPoseObservation] else {
+        guard let results = request.results as? [VNHumanBodyPoseObservation], let observation = results.first else {
+            DispatchQueue.main.async {
+                self.isBodyPoseDetected = false
+            }
             return
         }
-        
-        guard let observation = results.first else { return }
+        DispatchQueue.main.async {
+            self.isBodyPoseDetected = true
+        }
         
         // Extract pose keypoints
         var poseData: [Float] = []
@@ -512,6 +540,7 @@ class CameraService: NSObject, ObservableObject {
         }
         
         DispatchQueue.main.async {
+            print("[DEBUG] Detected angle: \(topResult.identifier) with confidence: \(topResult.confidence)")
             // Immediately update the angle classification without delay
             self.angleClassification = topResult.identifier
             
@@ -529,16 +558,19 @@ class CameraService: NSObject, ObservableObject {
             // Store the time for clip extraction as Double seconds
             let currentTime = self.movieFileOutput.recordedDuration.seconds
             switch topResult.identifier {
-            case "Open":
-                if self.openRacquetTimestamp == nil { // Only store the first occurrence
+            case "Opened":
+                if self.openRacquetTimestamp == nil {
+                    print("[DEBUG] Setting openRacquetTimestamp: \(currentTime)")
                     self.openRacquetTimestamp = currentTime
                 }
             case "Closed":
-                if self.closedRacquetTimestamp == nil { // Only store the first occurrence
+                if self.closedRacquetTimestamp == nil {
+                    print("[DEBUG] Setting closedRacquetTimestamp: \(currentTime)")
                     self.closedRacquetTimestamp = currentTime
                 }
-            case "Perfect":
-                if self.optimalRacquetTimestamp == nil { // Only store the first occurrence
+            case "Optimal":
+                if self.optimalRacquetTimestamp == nil {
+                    print("[DEBUG] Setting optimalRacquetTimestamp: \(currentTime)")
                     self.optimalRacquetTimestamp = currentTime
                 }
             default:
@@ -546,7 +578,7 @@ class CameraService: NSObject, ObservableObject {
             }
             
             // Send feedback to Apple Watch immediately
-            let isSuccessful = topResult.identifier == "Perfect"
+            let isSuccessful = topResult.identifier == "Optimal"
             WatchConnectivityManager.shared.sendImmediateShotFeedback(
                 angle: topResult.identifier,
                 isSuccessful: isSuccessful
@@ -978,33 +1010,24 @@ class CameraService: NSObject, ObservableObject {
         let distance = sqrt(pow(racquetCenter.x - ballCenter.x, 2) + pow(racquetCenter.y - ballCenter.y, 2))
         
         // Define proximity threshold (adjust this value based on testing)
-        let proximityThreshold: CGFloat = 0.15 // Normalized distance threshold
+        let proximityThreshold: CGFloat = 0.22 // Was 0.15, now less strict
         
         // Check if racquet and ball are close enough
         if distance <= proximityThreshold {
-            // Check cooldown to avoid too frequent analysis
             let currentTime = Date()
             if lastRacquetAngleAnalysisTime == nil ||
                currentTime.timeIntervalSince(lastRacquetAngleAnalysisTime!) >= racquetAngleAnalysisCooldown {
-                
-                print("Triggering HeadAngleV2 analysis - racquet and ball are close")
-                
-                // Clear previous angle classification immediately to show new analysis is starting
+                print("[DEBUG] Triggering HeadAngleV2 analysis - racquet and ball are close (distance: \(distance))")
                 DispatchQueue.main.async {
                     self.angleClassification = ""
                     self.currentStatus = "Analyzing racquet angle..."
                 }
-                
-                // Trigger HeadAngleV2 analysis
                 analyzeRacquetAngle(pixelBuffer: pixelBuffer)
                 lastRacquetAngleAnalysisTime = currentTime
-                
             } else {
-                print("Skipping analysis - cooldown active")
+                print("[DEBUG] Skipping analysis - cooldown active")
             }
         } else {
-            // Clear angle classification when racquet and ball are not close
-            // This prevents stale results from persisting
             DispatchQueue.main.async {
                 if !self.angleClassification.isEmpty {
                     self.angleClassification = ""

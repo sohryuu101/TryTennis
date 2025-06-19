@@ -117,7 +117,7 @@ struct LiveAnalysisTutorialView: View{
                 Spacer().frame(height: 24)
 
                 if currentTab == 1 {
-                    NavigationLink(destination: LiveAnalysisView()){
+                    NavigationLink(destination: LiveAnalysisView(), label: {
                         Text("Start Live Analysis")
                             .foregroundStyle(Color.white)
                             .font(.system(size: 20, weight: .semibold))
@@ -127,7 +127,10 @@ struct LiveAnalysisTutorialView: View{
                             .cornerRadius(50)
                             .padding(.horizontal)
                             .padding(.bottom)
-                    }
+                    })
+                    .simultaneousGesture(TapGesture().onEnded {
+                        WatchConnectivityManager.shared.sendLiveAnalysisStartedNotification()
+                    })
                 } else {
                     Spacer().frame(height: 60)
                 }

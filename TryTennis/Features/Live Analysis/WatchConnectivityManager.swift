@@ -139,6 +139,48 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         sendMessage(message)
     }
     
+    func sendNotInFrameFeedback() {
+        guard WCSession.default.isPaired else {
+            print("Apple Watch is not paired. Skipping not-in-frame feedback.")
+            return
+        }
+        let message: [String: Any] = [
+            "type": "notInFrame",
+            "timestamp": Date().timeIntervalSince1970,
+            "id": UUID().uuidString
+        ]
+        print("Sending not-in-frame feedback to watch")
+        sendMessage(message)
+    }
+    
+    func sendBackInFrameFeedback() {
+        guard WCSession.default.isPaired else {
+            print("Apple Watch is not paired. Skipping back-in-frame feedback.")
+            return
+        }
+        let message: [String: Any] = [
+            "type": "backInFrame",
+            "timestamp": Date().timeIntervalSince1970,
+            "id": UUID().uuidString
+        ]
+        print("Sending back-in-frame feedback to watch")
+        sendMessage(message)
+    }
+    
+    func sendLiveAnalysisStartedNotification() {
+        guard WCSession.default.isPaired else {
+            print("Apple Watch is not paired. Skipping live analysis start notification.")
+            return
+        }
+        let message: [String: Any] = [
+            "type": "liveAnalysisStarted",
+            "timestamp": Date().timeIntervalSince1970,
+            "id": UUID().uuidString
+        ]
+        print("Sending live analysis started notification to watch")
+        sendMessage(message)
+    }
+    
     private func sendMessage(_ message: [String: Any]) {
         guard WCSession.default.isPaired else {
             print("Apple Watch is not paired. Skipping message send.")
@@ -267,28 +309,34 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     
     private func sendLocalNotification(for message: [String: Any]) {
         guard let type = message["type"] as? String else { return }
-        
         let content = UNMutableNotificationContent()
         content.sound = .default
-        
         switch type {
         case "shotFeedback":
             guard let angle = message["angle"] as? String,
                   let isSuccessful = message["isSuccessful"] as? Bool else { return }
-            
             content.title = isSuccessful ? "Great Shot!" : "Keep Trying"
             content.body = "Racquet angle: \(angle)"
             content.categoryIdentifier = "SHOT_FEEDBACK"
-            
         case "sessionEnded":
             content.title = "Session Complete"
             content.body = "Your tennis session has ended"
             content.categoryIdentifier = "SESSION_ENDED"
-            
+        case "notInFrame":
+            content.title = "Warning"
+            content.body = "You are not in frame!"
+            content.categoryIdentifier = "NOT_IN_FRAME"
+        case "backInFrame":
+            content.title = "Info"
+            content.body = "You are back in frame!"
+            content.categoryIdentifier = "BACK_IN_FRAME"
+        case "liveAnalysisStarted":
+            content.title = "Live Analysis Started"
+            content.body = "Tap to open TryTennis on your watch."
+            content.categoryIdentifier = "LIVE_ANALYSIS_START"
         default:
             return
         }
-        
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }

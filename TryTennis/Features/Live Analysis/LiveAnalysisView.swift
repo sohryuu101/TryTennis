@@ -17,6 +17,34 @@ struct LiveAnalysisView: View {
                         CameraPreview(cameraService: cameraService)
                             .ignoresSafeArea()
                         
+//                        // WARNING OVERLAY
+//                        if !cameraService.isBodyPoseDetected {
+//                            VStack {
+//                                Spacer()
+//                                HStack {
+//                                    Spacer()
+//                                    HStack(spacing: 10) {
+//                                        Image(systemName: "exclamationmark.triangle.fill")
+//                                            .foregroundColor(.yellow)
+//                                            .font(.system(size: 28, weight: .bold))
+//                                        Text("You are not in frame")
+//                                            .font(.headline)
+//                                            .fontWeight(.bold)
+//                                            .foregroundColor(.white)
+//                                    }
+//                                    .padding(.horizontal, 24)
+//                                    .padding(.vertical, 16)
+//                                    .background(Color.red.opacity(0.85))
+//                                    .cornerRadius(16)
+//                                    .shadow(radius: 8)
+//                                    Spacer()
+//                                }
+//                                Spacer()
+//                            }
+//                            .transition(.opacity)
+//                            .animation(.easeInOut(duration: 0.3), value: cameraService.isBodyPoseDetected)
+//                        }
+                        
                         // Top bar with Statistics (right)
                         VStack {
                             HStack {
