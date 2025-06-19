@@ -330,7 +330,6 @@ struct ContentView: View {
                           .foregroundColor(.secondary)
                   }
                   .padding()
-                  .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.1)))
                   .animation(.easeInOut(duration: 0.3), value: feedback.id)
               } else {
                   VStack(spacing: 12) {
