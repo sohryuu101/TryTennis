@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct SessionHistoryView: View {
     @Query(sort: \Session.timestamp, order: .reverse) private var sessions: [Session]
@@ -11,14 +11,8 @@ struct SessionHistoryView: View {
     
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color(red: 50 / 255, green: 95 / 255, blue: 44 / 255),
-                         Color(red: 5 / 255, green: 19 / 255, blue: 3 / 255),
-                         Color.black],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            Color.black
+                .ignoresSafeArea(edges: .all)
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 24) {
@@ -66,7 +60,6 @@ struct SessionHistoryView: View {
                 .navigationTitle("")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.visible, for: .navigationBar)
-                .toolbarBackground(Color(red: 50 / 255.0, green: 95 / 255.0, blue: 44 / 255.0), for: .navigationBar)
                 .toolbarColorScheme(.dark, for: .navigationBar)
             }
         }

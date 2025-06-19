@@ -1,6 +1,6 @@
 import Foundation
-import WatchConnectivity
 import UserNotifications
+import WatchConnectivity
 
 class WatchConnectivityManager: NSObject, ObservableObject {
     static let shared = WatchConnectivityManager()

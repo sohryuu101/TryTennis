@@ -1,10 +1,10 @@
 import AVFoundation
 import CoreML
+import Photos
 import PhotosUI
 import SwiftData
 import Vision
 import WatchConnectivity
-import Photos
 
 // DEBUG: Proximity threshold loosened, angle confidence threshold lowered, and debug logging added for angle detection and timestamp setting.
 

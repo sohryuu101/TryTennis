@@ -15,16 +15,10 @@ class GripClassifierViewModel: ObservableObject {
     @Published var showPhotoResult = false
     var result: Int = 0
     
-    let photoGuideTutorial: [Guide] = [
-        Guide(image: "photo_guide_1", title: "Use a tennis racquet", description: "Make sure the racquet is fully visible from handle until head"),
-        Guide(image: "photo_guide_2", title: "Use right hand", description: "For better accuracy, please use your right hand to hold the racquet"),
-        Guide(image: "photo_guide_3", title: "Make sure the lighting is bright enough", description: "Avoid shadows that cover details."),
-        Guide(image: "photo_guide_4", title: "Keep the background clean", description: "Ensure the background is free of distractions")
-    ]
-    
-    let forehandGrip: [Guide] = [
-        Guide(image: "forehand_grip_1", title: "Turn the racquet upright", description: "Place your index knuckle on bevel 3"),
-        Guide(image: "forehand_grip_2", title: "Grip handle like a handshake", description: "Place each finger beside the others"),
+    let gripGuide: [Guide] = [
+        Guide(image: "grip_guide_1", title: "Index knuckle on bevel 3"),
+        Guide(image: "grip_guide_2", title: "Grip handle like a handshake"),
+        Guide(image: "grip_guide_3", title: "Ensure the photo brightness")
     ]
 
     func classifyImage() {
@@ -89,14 +83,12 @@ class GripClassifierViewModel: ObservableObject {
     func getConfidenceLabel(for confidence: Int) -> [String] {
         print("Check")
         switch confidence {
-            case 90...100:
-                return ["Perfect Grip!", "You're nailing it like a pro! Keep holding your racquet just like this"]
-            case 70...89:
-                return ["Great Grip!", "Almost perfect! Just a tiny tweak and you’re there"]
-            case 50...69:
-                return ["Good Grip!", "Just a few adjustments will make your grip even better!"]
+            case 85...100:
+                return ["Perfect Grip!", "Maintain your grip like this"]
+            case 60...84:
+                return ["Great Grip!", "Your grip is great enough to play"]
             default:
-                return ["Keep Going!", "Let’s try again. Try adjusting your fingers and racquet angle"]
+                return ["Keep Going!", "Try to adjust your grip and photo angle"]
         }
     }
 }
