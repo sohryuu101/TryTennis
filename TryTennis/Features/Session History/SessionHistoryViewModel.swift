@@ -1,13 +1,31 @@
+import Foundation
 import SwiftUI
+import SwiftData
 
 class SessionHistoryViewModel: ObservableObject {
-    @Published private(set) var activities: [SessionHistory] = []
+    @Published var sessions: [Session] = []
     
-    init(){
-        self.fetchActivities()
+    init(sessions: [Session]) {
+        self.sessions = sessions
     }
     
-    private func fetchActivities() {
-        
+    var todaySessions: [Session] {
+        let calendar = Calendar.current
+        return sessions.filter { calendar.isDateInToday($0.timestamp) }
+    }
+    var past7DaysSessions: [Session] {
+        let calendar = Calendar.current
+        return sessions.filter {
+            !calendar.isDateInToday($0.timestamp) &&
+            (calendar.dateComponents([.day], from: $0.timestamp, to: Date()).day ?? 8) < 7
+        }
+    }
+    var past12MonthsSessions: [Session] {
+        let calendar = Calendar.current
+        return sessions.filter {
+            !(calendar.isDateInToday($0.timestamp) ||
+              (calendar.dateComponents([.day], from: $0.timestamp, to: Date()).day ?? 400) < 7) &&
+            (calendar.dateComponents([.month], from: $0.timestamp, to: Date()).month ?? 13) < 12
+        }
     }
 }

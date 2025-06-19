@@ -8,17 +8,63 @@
 
 /* Begin PBXBuildFile section */
 		792A9C8A2DFAD0E50083BE0B /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 792A9C882DFAD0E10083BE0B /* .gitignore */; };
+		817DD5122E00BC3E0059B377 /* TryTennisWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 817DD5082E00BC3D0059B377 /* TryTennisWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		817DD51E2E00BF550059B377 /* WatchKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 817DD51C2E00BF500059B377 /* WatchKit.framework */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		817DD5102E00BC3E0059B377 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 79B638C42DF97F98003D8EA8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 817DD5072E00BC3D0059B377;
+			remoteInfo = "TryTennisWatch Watch App";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		817DD5162E00BC3E0059B377 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				817DD5122E00BC3E0059B377 /* TryTennisWatch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		792A9C882DFAD0E10083BE0B /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		79B638CC2DF97F98003D8EA8 /* TryTennis.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TryTennis.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		817DD5082E00BC3D0059B377 /* TryTennisWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "TryTennisWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		817DD51C2E00BF500059B377 /* WatchKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchKit.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS11.5.sdk/System/Library/Frameworks/WatchKit.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		817DD51A2E00BD010059B377 /* Exceptions for "TryTennis" folder in "TryTennis" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 79B638CB2DF97F98003D8EA8 /* TryTennis */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		79B638CE2DF97F98003D8EA8 /* TryTennis */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				817DD51A2E00BD010059B377 /* Exceptions for "TryTennis" folder in "TryTennis" target */,
+			);
 			path = TryTennis;
+			sourceTree = "<group>";
+		};
+		817DD5092E00BC3D0059B377 /* TryTennisWatchApp */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TryTennisWatchApp;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -31,6 +77,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		817DD5052E00BC3D0059B377 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				817DD51E2E00BF550059B377 /* WatchKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -38,8 +92,10 @@
 			isa = PBXGroup;
 			children = (
 				79B638CE2DF97F98003D8EA8 /* TryTennis */,
+				817DD5092E00BC3D0059B377 /* TryTennisWatchApp */,
 				79B638CD2DF97F98003D8EA8 /* Products */,
 				792A9C882DFAD0E10083BE0B /* .gitignore */,
+				817DD51B2E00BF500059B377 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -47,8 +103,17 @@
 			isa = PBXGroup;
 			children = (
 				79B638CC2DF97F98003D8EA8 /* TryTennis.app */,
+				817DD5082E00BC3D0059B377 /* TryTennisWatch Watch App.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		817DD51B2E00BF500059B377 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				817DD51C2E00BF500059B377 /* WatchKit.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -61,10 +126,12 @@
 				79B638C82DF97F98003D8EA8 /* Sources */,
 				79B638C92DF97F98003D8EA8 /* Frameworks */,
 				79B638CA2DF97F98003D8EA8 /* Resources */,
+				817DD5162E00BC3E0059B377 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				817DD5112E00BC3E0059B377 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				79B638CE2DF97F98003D8EA8 /* TryTennis */,
@@ -74,6 +141,28 @@
 			);
 			productName = TryTennis;
 			productReference = 79B638CC2DF97F98003D8EA8 /* TryTennis.app */;
+			productType = "com.apple.product-type.application";
+		};
+		817DD5072E00BC3D0059B377 /* TryTennisWatch Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 817DD5132E00BC3E0059B377 /* Build configuration list for PBXNativeTarget "TryTennisWatch Watch App" */;
+			buildPhases = (
+				817DD5042E00BC3D0059B377 /* Sources */,
+				817DD5052E00BC3D0059B377 /* Frameworks */,
+				817DD5062E00BC3D0059B377 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				817DD5092E00BC3D0059B377 /* TryTennisWatchApp */,
+			);
+			name = "TryTennisWatch Watch App";
+			packageProductDependencies = (
+			);
+			productName = "TryTennisWatch Watch App";
+			productReference = 817DD5082E00BC3D0059B377 /* TryTennisWatch Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -87,6 +176,9 @@
 				LastUpgradeCheck = 1640;
 				TargetAttributes = {
 					79B638CB2DF97F98003D8EA8 = {
+						CreatedOnToolsVersion = 16.4;
+					};
+					817DD5072E00BC3D0059B377 = {
 						CreatedOnToolsVersion = 16.4;
 					};
 				};
@@ -106,6 +198,7 @@
 			projectRoot = "";
 			targets = (
 				79B638CB2DF97F98003D8EA8 /* TryTennis */,
+				817DD5072E00BC3D0059B377 /* TryTennisWatch Watch App */,
 			);
 		};
 /* End PBXProject section */
@@ -119,6 +212,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		817DD5062E00BC3D0059B377 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -129,7 +229,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		817DD5042E00BC3D0059B377 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		817DD5112E00BC3E0059B377 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 817DD5072E00BC3D0059B377 /* TryTennisWatch Watch App */;
+			targetProxy = 817DD5102E00BC3E0059B377 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		79B638D52DF97F99003D8EA8 /* Debug */ = {
@@ -260,16 +375,18 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = LN4DD83473;
+				DEVELOPMENT_TEAM = 7VAW53U8Q6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TryTennis/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need access to your camera to take photos for classification.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We need access to your microphone to record audio with your tennis swing videos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need access to your photo library to save your recorded tennis swing videos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -290,16 +407,18 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = LN4DD83473;
+				DEVELOPMENT_TEAM = 7VAW53U8Q6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TryTennis/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "We need access to your camera to take photos for classification.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We need access to your microphone to record audio with your tennis swing videos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "We need access to your photo library to save your recorded tennis swing videos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -310,6 +429,66 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		817DD5142E00BC3E0059B377 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7VAW53U8Q6;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = TryTennisWatch;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = Richard.TryTennis;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = Richard.TryTennis.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Debug;
+		};
+		817DD5152E00BC3E0059B377 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7VAW53U8Q6;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = TryTennisWatch;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = Richard.TryTennis;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = Richard.TryTennis.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
 			};
 			name = Release;
 		};
@@ -330,6 +509,15 @@
 			buildConfigurations = (
 				79B638D82DF97F99003D8EA8 /* Debug */,
 				79B638D92DF97F99003D8EA8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		817DD5132E00BC3E0059B377 /* Build configuration list for PBXNativeTarget "TryTennisWatch Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				817DD5142E00BC3E0059B377 /* Debug */,
+				817DD5152E00BC3E0059B377 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

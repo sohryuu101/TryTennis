@@ -1,0 +1,77 @@
+import SwiftUI
+import WatchKit
+import WatchConnectivity
+
+@main
+struct TryTennisWatchApp: App {
+    @StateObject private var connectivityManager = WatchConnectivityManager.shared
+    
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .environmentObject(connectivityManager)
+        }
+    }
+}
+
+class WatchConnectivityManager: NSObject, ObservableObject {
+    static let shared = WatchConnectivityManager()
+    @Published var lastShotFeedback: ShotFeedback?
+    
+    private override init() {
+        super.init()
+        if WCSession.isSupported() {
+            let session = WCSession.default
+            session.delegate = self
+            session.activate()
+        }
+    }
+}
+
+extension WatchConnectivityManager: WCSessionDelegate {
+    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        // Handle activation completion
+    }
+    
+    func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
+        guard let type = message["type"] as? String,
+              type == "shotFeedback",
+              let angle = message["angle"] as? String,
+              let isSuccessful = message["isSuccessful"] as? Bool else {
+            return
+        }
+        
+        DispatchQueue.main.async {
+            self.lastShotFeedback = ShotFeedback(angle: angle, isSuccessful: isSuccessful)
+            WKInterfaceDevice.current().play(.notification)
+        }
+    }
+}
+
+struct ShotFeedback {
+    let angle: String
+    let isSuccessful: Bool
+}
+
+struct ContentView: View {
+    @EnvironmentObject private var connectivityManager: WatchConnectivityManager
+    
+    var body: some View {
+        VStack {
+            if let feedback = connectivityManager.lastShotFeedback {
+                VStack(spacing: 8) {
+                    Image(systemName: feedback.isSuccessful ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundColor(feedback.isSuccessful ? .green : .red)
+                        .font(.system(size: 40))
+                    
+                    Text(feedback.angle)
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                }
+            } else {
+                Text("Waiting for shots...")
+                    .font(.headline)
+            }
+        }
+    }
+}
