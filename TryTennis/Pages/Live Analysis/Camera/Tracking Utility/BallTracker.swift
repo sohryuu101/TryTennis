@@ -1,17 +1,52 @@
 import Foundation
 
+protocol BallTrackerDelegate: AnyObject {
+    func ballTracker(_ tracker: BallTracker, didProcessCrossingResult result: NetCrossingResult)
+}
+
 class BallTracker {
+    // -- Ball Trajectory --
+    private var _ballTrajectory: [BallPosition] = []
+    public var ballTrajectory: [BallPosition] { _ballTrajectory }
+    private let maxTrajectoryLength = 10 // Track last 10 positions
+    private var consecutiveFramesWithBall = 0
+
+    // -- Velocity Smoothing --
+    private var velocityHistory: [CGPoint] = []
+    private let velocityHistoryLength = 5
+    private var ballVelocity: CGPoint = .zero
+    private var lastBallVelocity: CGPoint = .zero
+
+    // -- Net Position --
+    private var confirmedNetPosition: CGRect?
+    private var netPositions: [CGRect] = []
+    private let maxNetVariance: CGFloat = 0.05  // Maximum allowed variance in net position
+
+    // -- Ball State --
+    private var lastBallState: BallState = .unknown
+    private var crossingInProgress = false
+    private var ballSideHistory: [String] = []
+
+    // -- Dependency Injection --
+    var scoringSystem: ScoringSystem!
+
+    // -- Delegate --
+    weak var delegate: BallTrackerDelegate?
+    
+    init() {
+        self.scoringSystem = ScoringSystem(ballTracker: self)
+    }
     
     private func updateBallTrajectory(ballPosition: CGRect, frameCount: Int) {
         let ballCenter = CGPoint(x: ballPosition.midX, y: ballPosition.midY)
         let timestamp = CFAbsoluteTimeGetCurrent()
         
         let ballPos = BallPosition(center: ballCenter, timestamp: timestamp, frame: frameCount)
-        ballTrajectory.append(ballPos)
+        _ballTrajectory.append(ballPos)
         
         // Keep only recent trajectory points
-        if ballTrajectory.count > maxTrajectoryLength {
-            ballTrajectory.removeFirst()
+        if _ballTrajectory.count > maxTrajectoryLength {
+            _ballTrajectory.removeFirst()
         }
         
         // Calculate smoothed velocity
@@ -78,16 +113,16 @@ class BallTracker {
         
         // If ball was lost during crossing, try to infer result from trajectory
         if crossingInProgress && ballTrajectory.count >= 3 {
-            let result = inferCrossingFromLostBall()
+            let result = scoringSystem.inferCrossingFromLostBall()
             if result != .uncertain {
-                processCrossingResult(result)
+                delegate?.ballTracker(self, didProcessCrossingResult: result)
             }
         }
         
         // Clear old trajectory if ball has been lost for too long
         if ballTrajectory.count > 0 &&
            CFAbsoluteTimeGetCurrent() - ballTrajectory.last!.timestamp > 1.0 {
-            ballTrajectory.removeAll()
+            _ballTrajectory.removeAll()
             ballSideHistory.removeAll()
             crossingInProgress = false
         }

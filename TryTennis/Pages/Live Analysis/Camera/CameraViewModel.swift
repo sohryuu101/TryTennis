@@ -7,98 +7,16 @@ import Vision
 import WatchConnectivity
 
 class CameraViewModel: NSObject, ObservableObject {
+    // --- Published UI State ---
     @Published var strokeClassification: String = "Ready"
     @Published var isProcessing = false
-    
     @Published var player: AVPlayer?
     @Published var isVideoReady = false
-    
     @Published var totalAttempts: Int = 0
-    
-    // Properties for tracking
     @Published var successfulShots: Int = 0
     @Published var failedShots: Int = 0
     @Published var currentStatus: String = "Ready to start"
-    
     @Published var angleClassification: String = ""
-    
-    // Add ModelContext property
-    var modelContext: ModelContext? = nil
-
-    // Camera capture properties
-    let captureSession = AVCaptureSession()
-    private var videoDataOutput: AVCaptureVideoDataOutput?
-    private var videoDataOutputQueue: DispatchQueue?
-
-    private var frameCount = 0
-    private let frameSkip = 1 // Process every frame for best accuracy
-    
-    // Ball trajectory tracking
-    private var ballTrajectory: [BallPosition] = []
-    private let maxTrajectoryLength = 15 // Track last 15 positions for trajectory analysis
-    private var ballVelocity: CGPoint = .zero
-    private var lastBallVelocity: CGPoint = .zero
-    
-    // Enhanced net detection
-    private var netPositions: [CGRect] = []
-    private var confirmedNetPosition: CGRect?
-    private var currentNetFrameCount = 0
-    
-    // Ball state tracking
-    private var lastBallState: BallState = .unknown
-    private var consecutiveFramesWithBall = 0
-    private let minConsecutiveFrames = 3 // Minimum frames to confirm ball detection
-    
-    // Net crossing detection
-    private var ballSideHistory: [String] = [] // Track ball side over time
-    private let sideHistoryLength = 5 // Consider last 5 positions
-    private var crossingInProgress = false
-    private var crossingStartFrame: Int = 0
-    private var lastProcessedCrossing: Int = 0
-    private let crossingCooldown = 30 // Frames to wait before processing another crossing
-    
-    // Height analysis for net clearance
-    private var netTopY: CGFloat = 0.0
-    private var netBottomY: CGFloat = 1.0
-    private var ballHeightAtCrossing: CGFloat = 0.0
-    
-    // Velocity smoothing for more stable trajectory analysis
-    private var velocityHistory: [CGPoint] = []
-    private let velocityHistoryLength = 5
-    
-    // Net position validation
-    private var netPositionVariance: CGFloat = 0.0
-    private let maxNetVariance: CGFloat = 0.05  // Maximum allowed variance in net position
-    
-    // Pose sequence buffer for swing detection
-    private var poseSequence: [[Float]] = []
-    private let sequenceLength = 30 // 30 frames as expected by the model
-    private let poseKeypoints = 18 // 18 keypoints as expected by the model
-    
-    private var videoOutput: AVPlayerItemVideoOutput?
-    private var displayLink: CADisplayLink?
-    private var playerStatusObserver: NSKeyValueObservation?
-    
-    // Track previous action label for transition detection
-    private var previousActionLabel: String? = nil
-    // Store the last impact frame's pixel buffer
-    private var lastImpactPixelBuffer: CVPixelBuffer? = nil
-    
-    // Video recording properties
-    let movieFileOutput = AVCaptureMovieFileOutput()
-    private var recordingStartTime: CMTime?
-    // Storing timestamps as Doubles for persistence in SwiftData
-    private var openRacquetTimestamp: Double? = nil
-    private var closedRacquetTimestamp: Double? = nil
-    private var optimalRacquetTimestamp: Double? = nil
-    private let clipDuration: Double = 2.0 // Duration of clips for playback
-    
-    // Add at the top of the class:
-    private var sessionNetPosition: CGRect? = nil // Persisted net position for the session
-    
-    private let racquetAngleAnalysisCooldown: Double = 0.1 // Reduced cooldown for more responsive updates
-    private var lastRacquetAngleAnalysisTime: Date? = nil
-    
     @Published var isBodyPoseDetected: Bool = true {
         didSet {
             if !isBodyPoseDetected && oldValue == true {
@@ -116,7 +34,52 @@ class CameraViewModel: NSObject, ObservableObject {
             }
         }
     }
-    
+
+    // --- Model Context ---
+    var modelContext: ModelContext? = nil
+
+    // --- Camera Capture Properties ---
+    let captureSession = AVCaptureSession()
+    private var videoDataOutput: AVCaptureVideoDataOutput?
+    private var videoDataOutputQueue: DispatchQueue?
+    private var videoOutput: AVPlayerItemVideoOutput?
+    private var displayLink: CADisplayLink?
+    private var playerStatusObserver: NSKeyValueObservation?
+    let movieFileOutput = AVCaptureMovieFileOutput()
+    private var recordingStartTime: CMTime?
+    private let clipDuration: Double = 2.0 // Duration of clips for playback
+
+    // --- Ball Tracking ---
+    let ballTracker = BallTracker()
+    private var frameCount = 0
+    private let frameSkip = 1 // Process every frame for best accuracy
+    private let minConsecutiveFrames = 3 // Minimum frames to confirm ball detection
+
+    // --- Net Detection & Crossing ---
+    private var confirmedNetPosition: CGRect?
+    private var currentNetFrameCount = 0
+    private var ballSideHistory: [String] = [] // Track ball side over time
+    private let sideHistoryLength = 5 // Consider last 5 positions
+    private var crossingInProgress = false
+    private var crossingStartFrame: Int = 0
+    private var lastProcessedCrossing: Int = 0
+    private let crossingCooldown = 30 // Frames to wait before processing another crossing
+    private var netTopY: CGFloat = 0.0
+    private var netBottomY: CGFloat = 1.0
+    private var ballHeightAtCrossing: CGFloat = 0.0
+    private var netPositionVariance: CGFloat = 0.0
+    private var sessionNetPosition: CGRect? = nil // Persisted net position for the session
+
+    // --- Racquet & Impact Tracking ---
+    private var previousActionLabel: String? = nil
+    private var lastImpactPixelBuffer: CVPixelBuffer? = nil
+    private var openRacquetTimestamp: Double? = nil
+    private var closedRacquetTimestamp: Double? = nil
+    private var optimalRacquetTimestamp: Double? = nil
+    private let racquetAngleAnalysisCooldown: Double = 0.1 // Reduced cooldown for more responsive updates
+    private var lastRacquetAngleAnalysisTime: Date? = nil
+
+    // --- Not-in-frame Feedback ---
     private var lastNotInFrameSent: Date? = nil
     private var lastBackInFrameSent: Date? = nil
     private let notInFrameCooldown: TimeInterval = 3.0 // seconds
@@ -124,16 +87,12 @@ class CameraViewModel: NSObject, ObservableObject {
     override init() {
         super.init()
         setupCamera()
-        setupSwingDetectionModel()
-        setupHeadAngleRequest()
-        setupPoseDetection()
-        setupRacquetDetection()
+        ballTracker.delegate = self
     }
     
     deinit {
         playerStatusObserver?.invalidate()
         displayLink?.invalidate()
-        angleDismissTimer?.invalidate()
         stopSession()
     }
 
@@ -355,6 +314,10 @@ class CameraViewModel: NSObject, ObservableObject {
         }
         
         return .uncertain
+    }
+    
+    func ballTracker(_ tracker: BallTracker, didProcessCrossingResult result: NetCrossingResult) {
+        processCrossingResult(result)
     }
     
     private func processCrossingResult(_ result: NetCrossingResult) {

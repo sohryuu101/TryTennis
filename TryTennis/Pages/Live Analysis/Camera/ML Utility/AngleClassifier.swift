@@ -8,7 +8,10 @@ struct AngleClassifierResult {
 }
 
 class AngleClassifier {
+    // --- Properties for the ML Model ---
     private var headAngleRequest: VNCoreMLRequest?
+    
+    // --- Internal properties for a single detection pass ---
     private var classificationCompletionHandler: ((AngleClassifierResult) -> Void)?
     
     init() {

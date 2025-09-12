@@ -2,37 +2,59 @@ import Foundation
 import Vision
 import CoreML
 
+struct SwingDetectionResult {
+    let strokeClassification: String
+    let confidence: Double
+}
+
 class SwingPoseDetector {
-//    * setupSwingDetectionModel()
-//    * setupPoseDetection()
-//    * processFrameForPoseDetection(_ pixelBuffer: CVPixelBuffer)
-//    * processPoseDetection(for:error:)
-//    * performSwingDetection(currentPixelBuffer: CVPixelBuffer?) - (Should be modified to return a swing
-//      classification, e.g., "Impact").
+    // --- Properties for the ML Models ---
     private var swingDetectionModel: VNCoreMLModel?
     private var swingDetectionRequest: VNCoreMLRequest?
+    private var swingDetector: SwingDetector?
+    private var poseRequest: VNDetectHumanBodyPoseRequest?
+    
+    // --- Internal properties for a single detection pass ---
+    private var currentPixelBuffer: CVPixelBuffer?
+    private var swingDetectionCompletionHandler: ((SwingDetectionResult) -> Void)?
+    
+    // --- Internal properties for pose sequence logic ---
+    private var poseSequence: [[Float]] = []
+    private let sequenceLength = 30
+    private let poseKeypoints = 18
+    
+    init() {
+        setupSwingDetection()
+        setupPoseDetection()
+    }
     
     private func setupSwingDetection() {
         do {
-            let model = try SwingDetector(configuration: MLModelConfiguration()).model
-            swingDetectionModel = try VNCoreMLModel(for: model)
+            let detector = try SwingDetector(configuration: MLModelConfiguration())
+            swingDetector = detector
+            swingDetectionModel = try VNCoreMLModel(for: detector.model)
             swingDetectionRequest = VNCoreMLRequest(model: swingDetectionModel!) { [weak self] (request, error) in
                 self?.handleSwingDetectionCompleted(for: request, error: error)
             }
-            racquetBallNetDetectionRequest?.imageCropAndScaleOption = .scaleFill
+            swingDetectionRequest?.imageCropAndScaleOption = .scaleFill
         } catch {
-            print("Failed to load AnotherRacquetDetect ML model: \(error)")
+            print("Failed to load SwingDetector ML model: \(error)")
         }
     }
     
     private func setupPoseDetection() {
-        poseRequest = VNDetectHumanBodyPoseRequest(completionHandler: { [weak self] (request, error) in
-            self?.processPoseDetection(for: request, error: error)
+        self.poseRequest = VNDetectHumanBodyPoseRequest(completionHandler: { [weak self] (request, error) in
+            self?.handlePoseDetectionCompleted(for: request, error: error)
         })
     }
     
-    private func processFrameForPoseDetection(_ pixelBuffer: CVPixelBuffer) {
+    public func detectSwing(on pixelBuffer: CVPixelBuffer, completionHandler: @escaping (SwingDetectionResult) -> Void) {
         self.currentPixelBuffer = pixelBuffer
+        self.swingDetectionCompletionHandler = completionHandler
+        self.processFrameForPoseDetection(pixelBuffer)
+    }
+    
+    private func processFrameForPoseDetection(_ pixelBuffer: CVPixelBuffer) {
         guard let poseRequest = self.poseRequest else { return }
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
         do {
@@ -42,16 +64,8 @@ class SwingPoseDetector {
         }
     }
     
-    private func processPoseDetection(for request: VNRequest, error: Error?) {
-        guard let results = request.results as? [VNHumanBodyPoseObservation], let observation = results.first else {
-            DispatchQueue.main.async {
-                self.isBodyPoseDetected = false
-            }
-            return
-        }
-        DispatchQueue.main.async {
-            self.isBodyPoseDetected = true
-        }
+    private func handlePoseDetectionCompleted(for request: VNRequest, error: Error?) {
+        guard let results = request.results as? [VNHumanBodyPoseObservation], let observation = results.first else { return }
         
         // Extract pose keypoints
         var poseData: [Float] = []
@@ -92,15 +106,26 @@ class SwingPoseDetector {
             poseSequence.removeFirst()
         }
         
-        // When we have enough frames, perform swing detection
+        // When we have enough frames, trigger swing detection using Vision request
         if poseSequence.count == sequenceLength {
-            // Pass the pixel buffer for this frame
-            self.performSwingDetection(currentPixelBuffer: self.currentPixelBuffer)
+            guard let request = self.swingDetectionRequest,
+                  let pixelBuffer = self.currentPixelBuffer else { return }
+            
+            let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
+            do {
+                try handler.perform([request])
+            } catch {
+                print("Failed to perform swing detection request: \(error)")
+            }
         }
     }
     
-    private func performSwingDetection(currentPixelBuffer: CVPixelBuffer?) {
-        guard let model = swingDetectionModel else { return }
+    private func handleSwingDetectionCompleted(for request: VNRequest, error: Error?) {
+        guard let detector = swingDetector else { return }
+        
+        // Only proceed if we have enough pose frames
+        guard poseSequence.count == sequenceLength else { return }
+        
         do {
             // Create MLMultiArray with shape [30, 3, 18]
             let inputArray = try MLMultiArray(shape: [30, 3, 18], dataType: .float32)
@@ -118,42 +143,26 @@ class SwingPoseDetector {
                 }
             }
             
-            let input = SwingDetectorIteration_120Input(poses: inputArray)
-            let output = try model.prediction(input: input)
+            let input = SwingDetectorInput(poses: inputArray)
+            let output = try detector.prediction(input: input)
             
             DispatchQueue.main.async {
                 let sortedProbabilities = output.labelProbabilities.sorted { $0.value > $1.value }
                 if let topResult = sortedProbabilities.first {
                     let confidence = topResult.value
                     let actionLabel = topResult.key
-                    // Always show action and confidence for development
-                    self.strokeClassification = "Action: \(actionLabel) (\(Int(confidence * 100))%)"
                     
-                    let isImpact = actionLabel.lowercased().contains("impact") && confidence > 0.1
-                    let wasImpact = (self.previousActionLabel?.lowercased().contains("impact") ?? false)
+                    let result = SwingDetectionResult(
+                        strokeClassification: actionLabel,
+                        confidence: confidence
+                    )
                     
-                    // Handle impact detection
-                    if isImpact && !wasImpact {
-                        // New impact detected
-                        self.handleNewImpact()
-                    }
-                    
-                    // Store the pixel buffer for the last impact frame (keep for potential future use)
-                    if isImpact, let pixelBuffer = currentPixelBuffer {
-                        self.lastImpactPixelBuffer = pixelBuffer
-                    }
-                    self.previousActionLabel = actionLabel
+                    self.swingDetectionCompletionHandler?(result)
                 }
             }
             
         } catch {
             print("Failed to perform swing detection: \(error)")
-            DispatchQueue.main.async {
-                self.strokeClassification = "Swing detection failed"
-            }
         }
     }
-    
-    
 }
-
