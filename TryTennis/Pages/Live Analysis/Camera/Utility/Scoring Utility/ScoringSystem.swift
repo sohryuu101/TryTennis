@@ -1,19 +1,12 @@
 import Foundation
 
 class ScoringSystem {
-    // --- Ball and Net State ---
-    private var lastBallSide: String? = nil // "left" or "right"
-    private var netBox: CGRect? = nil
-    private var confirmedNetPosition: CGRect?
-    private var netTopY: CGFloat = 0.0
-    private var netBottomY: CGFloat = 1.0
-
     // --- Scoring Counters ---
     private var totalAttempts: Int = 0
     private var successfulShots: Int = 0
     private var failedShots: Int = 0
 
-    // --- (DI from BallTracker) Ball Trajectory Analysis ---
+    // --- Dependency Injection from BallTracker ---
     private let ballTracker: BallTracker
     public init(ballTracker: BallTracker) {
         self.ballTracker = ballTracker
@@ -21,17 +14,28 @@ class ScoringSystem {
     private var ballTrajectory: [BallPosition] {
         return ballTracker.ballTrajectory
     }
-    
-    // --- Ball Trajectory Analysis ---
-    private var ballVelocity: CGPoint = .zero
+    private var ballVelocity: CGPoint {
+        return ballTracker.ballVelocity
+    }
+    private var confirmedNetPosition: CGRect? {
+        return ballTracker.confirmedNetPosition
+    }
+    private var ballSideHistory: [String] {
+        return ballTracker.ballSideHistory
+    }
+    private var crossingInProgress: Bool {
+        return ballTracker.crossingInProgress
+    }
+
+    // --- Net State (local to scoring logic) ---
+    private var lastBallSide: String? = nil // "left" or "right"
+    private var netBox: CGRect? = nil
+    private var netTopY: CGFloat = 0.0
+    private var netBottomY: CGFloat = 1.0
 
     // --- Net Crossing Detection ---
-    private var ballSideHistory: [String] = []
     private let sideHistoryLength = 5
-    private var crossingInProgress = false
     private var crossingStartFrame: Int = 0
-    private var lastProcessedCrossing: Int = 0
-    private let crossingCooldown = 30
 
     // --- Frame and Analysis State ---
     private var frameCount = 0
@@ -73,25 +77,26 @@ class ScoringSystem {
         let ballCenter = CGPoint(x: ballPosition.midX, y: ballPosition.midY)
         let netCenterX = netPosition.midX
         let currentSide = ballCenter.x < netCenterX ? "left" : "right"
-        ballSideHistory.append(currentSide)
-        if ballSideHistory.count > sideHistoryLength {
-            ballSideHistory.removeFirst()
+        // Use BallTracker's mutator
+        ballTracker.appendBallSideHistory(currentSide)
+        if ballTracker.ballSideHistory.count > sideHistoryLength {
+            ballTracker.removeFirstBallSideHistory()
         }
-        if ballSideHistory.count >= sideHistoryLength {
-            let hasLeftSide = ballSideHistory.contains("left")
-            let hasRightSide = ballSideHistory.contains("right")
-            if hasLeftSide && hasRightSide && !crossingInProgress {
+        if ballTracker.ballSideHistory.count >= sideHistoryLength {
+            let hasLeftSide = ballTracker.ballSideHistory.contains("left")
+            let hasRightSide = ballTracker.ballSideHistory.contains("right")
+            if hasLeftSide && hasRightSide && !ballTracker.crossingInProgress {
                 return initiateCrossingAnalysis(ballPosition: ballPosition, netPosition: netPosition)
             }
         }
-        if crossingInProgress {
+        if ballTracker.crossingInProgress {
             return continueCrossingAnalysis(ballPosition: ballPosition, netPosition: netPosition)
         }
         return .uncertain
     }
 
     private func initiateCrossingAnalysis(ballPosition: CGRect, netPosition: CGRect) -> NetCrossingResult {
-        crossingInProgress = true
+        ballTracker.setCrossingInProgress(true)
         crossingStartFrame = frameCount
         ballHeightAtCrossing = ballPosition.midY
         return continueCrossingAnalysis(ballPosition: ballPosition, netPosition: netPosition)
@@ -101,7 +106,7 @@ class ScoringSystem {
         let ballCenterX = ballPosition.midX
         let netCenterX = netPosition.midX
         if ballCenterX > netCenterX + (netPosition.width * 0.3) {
-            crossingInProgress = false
+            ballTracker.setCrossingInProgress(false)
             let crossingHeight = estimateCrossingHeight()
             let netMargin: CGFloat = 0.01
             if crossingHeight < netTopY - netMargin && validateSuccessfulTrajectory() {
@@ -172,4 +177,5 @@ class ScoringSystem {
         let maxDy = dys.max() ?? 0
         return maxDy < 0.08
     }
+
 }

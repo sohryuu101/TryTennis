@@ -1,3 +1,4 @@
+import Foundation
 import AVFoundation
 import CoreML
 import Photos
@@ -6,7 +7,7 @@ import SwiftData
 import Vision
 import WatchConnectivity
 
-class CameraViewModel: NSObject, ObservableObject {
+class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
     // --- Published UI State ---
     @Published var strokeClassification: String = "Ready"
     @Published var isProcessing = false
@@ -17,6 +18,7 @@ class CameraViewModel: NSObject, ObservableObject {
     @Published var failedShots: Int = 0
     @Published var currentStatus: String = "Ready to start"
     @Published var angleClassification: String = ""
+    @Published var detectedObjects: [DetectedObject] = []
     @Published var isBodyPoseDetected: Bool = true {
         didSet {
             if !isBodyPoseDetected && oldValue == true {
@@ -50,25 +52,11 @@ class CameraViewModel: NSObject, ObservableObject {
     private let clipDuration: Double = 2.0 // Duration of clips for playback
 
     // --- Ball Tracking ---
-    let ballTracker = BallTracker()
     private var frameCount = 0
     private let frameSkip = 1 // Process every frame for best accuracy
     private let minConsecutiveFrames = 3 // Minimum frames to confirm ball detection
-
-    // --- Net Detection & Crossing ---
-    private var confirmedNetPosition: CGRect?
-    private var currentNetFrameCount = 0
-    private var ballSideHistory: [String] = [] // Track ball side over time
-    private let sideHistoryLength = 5 // Consider last 5 positions
-    private var crossingInProgress = false
-    private var crossingStartFrame: Int = 0
+    private let crossingCooldown = 30
     private var lastProcessedCrossing: Int = 0
-    private let crossingCooldown = 30 // Frames to wait before processing another crossing
-    private var netTopY: CGFloat = 0.0
-    private var netBottomY: CGFloat = 1.0
-    private var ballHeightAtCrossing: CGFloat = 0.0
-    private var netPositionVariance: CGFloat = 0.0
-    private var sessionNetPosition: CGRect? = nil // Persisted net position for the session
 
     // --- Racquet & Impact Tracking ---
     private var previousActionLabel: String? = nil
@@ -82,8 +70,27 @@ class CameraViewModel: NSObject, ObservableObject {
     // --- Not-in-frame Feedback ---
     private var lastNotInFrameSent: Date? = nil
     private var lastBackInFrameSent: Date? = nil
-    private let notInFrameCooldown: TimeInterval = 3.0 // seconds
+    private let notInFrameCooldown: Double = 2.0
+
+    // --- Access ball/net/crossing state via ballTracker ---
+    // Example usage:
+    // var confirmedNetPosition: CGRect? { ballTracker.confirmedNetPosition }
+    // var ballSideHistory: [String] { ballTracker.ballSideHistory }
+    // var crossingInProgress: Bool { ballTracker.crossingInProgress }
+    // var netTopY: CGFloat { ... } // If needed, add to BallTracker
+    // var netBottomY: CGFloat { ... } // If needed, add to BallTracker
+    // var ballHeightAtCrossing: CGFloat { ... } // If needed, add to BallTracker
     
+    // --- ML Utility Properties ---
+    private let swingPoseDetector = SwingPoseDetector()
+    private let angleClassifier = AngleClassifier()
+    private let ballTracker = BallTracker()
+    private let objectDetection = RacquetBallNetDetection()
+    
+    private var ballTrajectory: [BallPosition] {
+        return ballTracker.ballTrajectory
+    }
+
     override init() {
         super.init()
         setupCamera()
@@ -93,7 +100,13 @@ class CameraViewModel: NSObject, ObservableObject {
     deinit {
         playerStatusObserver?.invalidate()
         displayLink?.invalidate()
-        stopSession()
+        
+        // Safely stop the capture session on a background queue to avoid crashes
+        DispatchQueue.global(qos: .background).async { [captureSession] in
+            if captureSession.isRunning {
+                captureSession.stopRunning()
+            }
+        }
     }
 
     private func setupCamera() {
@@ -196,7 +209,7 @@ class CameraViewModel: NSObject, ObservableObject {
         if isProcessing {
             strokeClassification = "🎾 Detecting racquet and ball proximity..."
             frameCount = 0
-            poseSequence.removeAll()
+            swingPoseDetector.resetPoseSequence()
             // Reset all tracking using the centralized method
             resetStatistics()
             openRacquetTimestamp = nil
@@ -265,7 +278,14 @@ class CameraViewModel: NSObject, ObservableObject {
                     self.angleClassification = ""
                     self.currentStatus = "Analyzing racquet angle..."
                 }
-                analyzeRacquetAngle(pixelBuffer: pixelBuffer)       // pindah ke racquetheadangleclassification
+                angleClassifier.classify(on: pixelBuffer) { [weak self] result in
+                    DispatchQueue.main.async {
+                        self?.angleClassification = result.angleResult
+                        
+                        // Optionally, use result.confidence for UI or logic
+                        self?.currentStatus = "Angle classified: \(result.angleResult) (\(result.confidence))"
+                    }
+                }       // pindah ke AngleClassification
                 lastRacquetAngleAnalysisTime = currentTime
             } else {
                 print("[DEBUG] Skipping analysis - cooldown active")
@@ -278,42 +298,6 @@ class CameraViewModel: NSObject, ObservableObject {
                 }
             }
         }
-    }
-    
-    // MARK: - Enhanced Ball Tracking Methods
-    
-    private func analyzeNetCrossing(ballPosition: CGRect, netPosition: CGRect) -> NetCrossingResult {
-        guard ballTrajectory.count >= 3 else { return .uncertain }
-        
-        let ballCenter = CGPoint(x: ballPosition.midX, y: ballPosition.midY)
-        let netCenterX = netPosition.midX
-        
-        // Determine which side of net the ball is on
-        let currentSide = ballCenter.x < netCenterX ? "left" : "right"
-        ballSideHistory.append(currentSide)
-        
-        // Keep only recent side history
-        if ballSideHistory.count > sideHistoryLength {
-            ballSideHistory.removeFirst()
-        }
-        
-        // Check for crossing pattern (left to right typically for tennis)
-        if ballSideHistory.count >= sideHistoryLength {
-            let hasLeftSide = ballSideHistory.contains("left")
-            let hasRightSide = ballSideHistory.contains("right")
-            
-            // Look for transition from left to right
-            if hasLeftSide && hasRightSide && !crossingInProgress {
-                return initiateCrossingAnalysis(ballPosition: ballPosition, netPosition: netPosition)
-            }
-        }
-        
-        // If crossing is in progress, continue monitoring
-        if crossingInProgress {
-            return continueCrossingAnalysis(ballPosition: ballPosition, netPosition: netPosition)
-        }
-        
-        return .uncertain
     }
     
     func ballTracker(_ tracker: BallTracker, didProcessCrossingResult result: NetCrossingResult) {
@@ -365,9 +349,7 @@ class CameraViewModel: NSObject, ObservableObject {
         }
         
         // Reset tracking for next shot
-        ballSideHistory.removeAll()
-        crossingInProgress = false
-        velocityHistory.removeAll()
+        ballTracker.resetAllTracking()
     }
 
     // Add method to reset statistics and tracking
@@ -380,19 +362,8 @@ class CameraViewModel: NSObject, ObservableObject {
         }
         
         // Reset all tracking properties
-        ballTrajectory.removeAll()
-        netPositions.removeAll()
-        confirmedNetPosition = nil
-        currentNetFrameCount = 0
-        ballSideHistory.removeAll()
-        crossingInProgress = false
+        ballTracker.resetAllTracking()
         lastProcessedCrossing = 0
-        ballVelocity = .zero
-        lastBallVelocity = .zero
-        velocityHistory.removeAll()
-        lastBallState = .unknown
-        consecutiveFramesWithBall = 0
-        sessionNetPosition = nil
     }
 
 }
@@ -400,7 +371,7 @@ class CameraViewModel: NSObject, ObservableObject {
 // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
 extension CameraViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard isProcessing, !isImpactProcessing else { return }
+        guard isProcessing else { return }
         
         frameCount += 1
         guard frameCount % frameSkip == 0 else { return }
@@ -408,17 +379,7 @@ extension CameraViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         
         // Pass pixelBuffer to pose detection
-        processFrameForPoseDetection(pixelBuffer)
-        
-        // Process racquet detection
-        if let racquetDetectionRequest = self.racquetDetectionRequest {
-            let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
-            do {
-                try handler.perform([racquetDetectionRequest])
-            } catch {
-                print("Failed to perform racquet detection: \(error)")
-            }
-        }
+        swingPoseDetector.processFrameForPoseDetection(pixelBuffer)
     }
 }
 

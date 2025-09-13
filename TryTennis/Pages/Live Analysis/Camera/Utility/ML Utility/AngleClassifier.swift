@@ -51,7 +51,7 @@ class AngleClassifier {
         }
         
         // Immediately update the angle classification without delay
-        var angleClassification = topResult.identifier
+        let angleClassification = topResult.identifier
         
         let classificationResult = AngleClassifierResult(
             angleResult: angleClassification,

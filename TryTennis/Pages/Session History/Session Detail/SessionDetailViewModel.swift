@@ -82,14 +82,21 @@ class SessionDetailViewModel: ObservableObject {
             let clipStart = max(0, impactTime - 1.0)
             let clipEnd = impactTime + 1.0
             let timeRange = CMTimeRange(start: CMTime(seconds: clipStart, preferredTimescale: 600), duration: CMTime(seconds: clipEnd - clipStart, preferredTimescale: 600))
-            let exportSession = AVAssetExportSession(asset: avAsset, presetName: AVAssetExportPresetHighestQuality)
+            
+            guard let exportSession = AVAssetExportSession(asset: avAsset, presetName: AVAssetExportPresetHighestQuality) else {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            
             let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mp4")
-            exportSession?.outputURL = tempURL
-            exportSession?.outputFileType = .mp4
-            exportSession?.timeRange = timeRange
-            exportSession?.exportAsynchronously {
+            exportSession.outputURL = tempURL
+            exportSession.outputFileType = .mp4
+            exportSession.timeRange = timeRange
+            
+            // Use legacy API for all iOS versions to avoid complex iOS 18.0+ state handling
+            exportSession.exportAsynchronously {
                 DispatchQueue.main.async {
-                    if exportSession?.status == .completed {
+                    if exportSession.status == .completed {
                         self.tempClipURL = tempURL
                         completion(tempURL)
                     } else {
@@ -132,4 +139,4 @@ class SessionDetailViewModel: ObservableObject {
     var formattedTime: String {
         session.timestamp.formatted(.dateTime.hour().minute())
     }
-} 
+}

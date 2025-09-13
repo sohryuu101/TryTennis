@@ -63,7 +63,7 @@ struct SessionHistoryView: View {
                 .toolbarColorScheme(.dark, for: .navigationBar)
             }
         }
-        .onChange(of: sessions) { newSessions in
+        .onChange(of: sessions) { _, newSessions in
             viewModel.sessions = newSessions
         }
         .onAppear {

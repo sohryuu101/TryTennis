@@ -14,18 +14,18 @@ class BallTracker {
     // -- Velocity Smoothing --
     private var velocityHistory: [CGPoint] = []
     private let velocityHistoryLength = 5
-    private var ballVelocity: CGPoint = .zero
-    private var lastBallVelocity: CGPoint = .zero
+    public private(set) var ballVelocity: CGPoint = .zero
+    public private(set) var lastBallVelocity: CGPoint = .zero
 
     // -- Net Position --
-    private var confirmedNetPosition: CGRect?
+    public private(set) var confirmedNetPosition: CGRect?
     private var netPositions: [CGRect] = []
     private let maxNetVariance: CGFloat = 0.05  // Maximum allowed variance in net position
 
     // -- Ball State --
-    private var lastBallState: BallState = .unknown
-    private var crossingInProgress = false
-    private var ballSideHistory: [String] = []
+    public private(set) var lastBallState: BallState = .unknown
+    public private(set) var crossingInProgress = false
+    public private(set) var ballSideHistory: [String] = []
 
     // -- Dependency Injection --
     var scoringSystem: ScoringSystem!
@@ -158,5 +158,43 @@ class BallTracker {
             width: avgWidth,
             height: avgHeight
         )
+    }
+    
+    // --- Ball Side History Mutators ---
+    public func appendBallSideHistory(_ side: String) {
+        ballSideHistory.append(side)
+    }
+    public func removeFirstBallSideHistory() {
+        if !ballSideHistory.isEmpty {
+            ballSideHistory.removeFirst()
+        }
+    }
+    public func resetBallSideHistory() {
+        ballSideHistory.removeAll()
+    }
+    // --- Crossing In Progress Mutator ---
+    public func setCrossingInProgress(_ value: Bool) {
+        crossingInProgress = value
+    }
+    
+    public func resetBallVelocityHistory() {
+        velocityHistory.removeAll()
+    }
+    
+    public func resetBallTrajectory() {
+        _ballTrajectory.removeAll()
+    }
+    
+    public func resetAllTracking() {
+        resetBallSideHistory()
+        resetBallVelocityHistory()
+        resetBallTrajectory()
+        netPositions.removeAll()
+        confirmedNetPosition = nil
+        crossingInProgress = false
+        ballVelocity = .zero
+        lastBallVelocity = .zero
+        lastBallState = .unknown
+        consecutiveFramesWithBall = 0
     }
 }

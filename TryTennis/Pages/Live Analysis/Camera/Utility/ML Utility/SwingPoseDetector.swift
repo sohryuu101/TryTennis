@@ -9,8 +9,6 @@ struct SwingDetectionResult {
 
 class SwingPoseDetector {
     // --- Properties for the ML Models ---
-    private var swingDetectionModel: VNCoreMLModel?
-    private var swingDetectionRequest: VNCoreMLRequest?
     private var swingDetector: SwingDetector?
     private var poseRequest: VNDetectHumanBodyPoseRequest?
     
@@ -19,7 +17,7 @@ class SwingPoseDetector {
     private var swingDetectionCompletionHandler: ((SwingDetectionResult) -> Void)?
     
     // --- Internal properties for pose sequence logic ---
-    private var poseSequence: [[Float]] = []
+    public private(set) var poseSequence: [[Float]] = []
     private let sequenceLength = 30
     private let poseKeypoints = 18
     
@@ -32,11 +30,6 @@ class SwingPoseDetector {
         do {
             let detector = try SwingDetector(configuration: MLModelConfiguration())
             swingDetector = detector
-            swingDetectionModel = try VNCoreMLModel(for: detector.model)
-            swingDetectionRequest = VNCoreMLRequest(model: swingDetectionModel!) { [weak self] (request, error) in
-                self?.handleSwingDetectionCompleted(for: request, error: error)
-            }
-            swingDetectionRequest?.imageCropAndScaleOption = .scaleFill
         } catch {
             print("Failed to load SwingDetector ML model: \(error)")
         }
@@ -54,7 +47,7 @@ class SwingPoseDetector {
         self.processFrameForPoseDetection(pixelBuffer)
     }
     
-    private func processFrameForPoseDetection(_ pixelBuffer: CVPixelBuffer) {
+    public func processFrameForPoseDetection(_ pixelBuffer: CVPixelBuffer) {
         guard let poseRequest = self.poseRequest else { return }
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
         do {
@@ -106,21 +99,13 @@ class SwingPoseDetector {
             poseSequence.removeFirst()
         }
         
-        // When we have enough frames, trigger swing detection using Vision request
+        // When we have enough frames, trigger swing detection directly
         if poseSequence.count == sequenceLength {
-            guard let request = self.swingDetectionRequest,
-                  let pixelBuffer = self.currentPixelBuffer else { return }
-            
-            let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
-            do {
-                try handler.perform([request])
-            } catch {
-                print("Failed to perform swing detection request: \(error)")
-            }
+            performSwingDetection()
         }
     }
     
-    private func handleSwingDetectionCompleted(for request: VNRequest, error: Error?) {
+    private func performSwingDetection() {
         guard let detector = swingDetector else { return }
         
         // Only proceed if we have enough pose frames
@@ -164,5 +149,9 @@ class SwingPoseDetector {
         } catch {
             print("Failed to perform swing detection: \(error)")
         }
+    }
+    
+    public func resetPoseSequence() {
+        poseSequence.removeAll()
     }
 }
