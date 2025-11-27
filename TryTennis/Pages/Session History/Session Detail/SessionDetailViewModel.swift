@@ -1,8 +1,9 @@
-import Foundation
 import SwiftUI
 import AVKit
+import AVFoundation
 import Photos
 
+@MainActor
 class SessionDetailViewModel: ObservableObject {
     let session: Session
     @Published var videoThumbnail: UIImage? = nil
@@ -87,20 +88,40 @@ class SessionDetailViewModel: ObservableObject {
                 DispatchQueue.main.async { completion(nil) }
                 return
             }
-            
+
             let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mp4")
-            exportSession.outputURL = tempURL
-            exportSession.outputFileType = .mp4
             exportSession.timeRange = timeRange
-            
-            // Use legacy API for all iOS versions to avoid complex iOS 18.0+ state handling
-            exportSession.exportAsynchronously {
-                DispatchQueue.main.async {
-                    if exportSession.status == .completed {
-                        self.tempClipURL = tempURL
-                        completion(tempURL)
-                    } else {
-                        completion(nil)
+
+            if #available(iOS 18.0, *) {
+                Task {
+                    do {
+                        try await exportSession.export(to: tempURL, as: .mp4)
+                        await MainActor.run {
+                            self.tempClipURL = tempURL
+                            completion(tempURL)
+                        }
+                    } catch {
+                        // Clean up any partially written file
+                        try? FileManager.default.removeItem(at: tempURL)
+                        await MainActor.run {
+                            completion(nil)
+                        }
+                    }
+                }
+            } else {
+                exportSession.outputURL = tempURL
+                exportSession.outputFileType = .mp4
+                exportSession.exportAsynchronously { [weak self] in
+                    let fileExists = FileManager.default.fileExists(atPath: tempURL.path)
+                    DispatchQueue.main.async {
+                        if fileExists {
+                            self?.tempClipURL = tempURL
+                            completion(tempURL)
+                        } else {
+                            // Clean up any partially written file
+                            try? FileManager.default.removeItem(at: tempURL)
+                            completion(nil)
+                        }
                     }
                 }
             }
@@ -140,3 +161,4 @@ class SessionDetailViewModel: ObservableObject {
         session.timestamp.formatted(.dateTime.hour().minute())
     }
 }
+

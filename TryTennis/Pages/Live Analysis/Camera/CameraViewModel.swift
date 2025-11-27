@@ -7,7 +7,31 @@ import SwiftData
 import Vision
 import WatchConnectivity
 
-class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
+/// ViewModel for Camera and Live Analysis feature
+/// Note: Inherits from NSObject (not BaseViewModel) due to AVFoundation delegate requirements
+/// Follows MVVM by delegating business logic to services
+class CameraViewModel: NSObject, ObservableObject {
+    
+    private enum CameraSetupError: Error {
+        case deviceNotFound
+        case inputCreationFailed
+        case cannotAddInput
+        case cannotAddVideoOutput
+        case cannotAddMovieOutput
+        case permissionDenied
+        
+        var localizedDescription: String {
+            switch self {
+            case .deviceNotFound: return "Back camera not available"
+            case .inputCreationFailed: return "Failed to create camera input"
+            case .cannotAddInput: return "Cannot add camera input to session"
+            case .cannotAddVideoOutput: return "Cannot add video output to session"
+            case .cannotAddMovieOutput: return "Cannot add movie output to session"
+            case .permissionDenied: return "Camera permission denied"
+            }
+        }
+    }
+    
     // --- Published UI State ---
     @Published var strokeClassification: String = "Ready"
     @Published var isProcessing = false
@@ -52,9 +76,8 @@ class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
     private let clipDuration: Double = 2.0 // Duration of clips for playback
 
     // --- Ball Tracking ---
-    private var frameCount = 0
-    private let frameSkip = 1 // Process every frame for best accuracy
-    private let minConsecutiveFrames = 3 // Minimum frames to confirm ball detection
+    var frameCount = 0
+    let frameSkip = 1 // Process every frame for best accuracy
     private let crossingCooldown = 30
     private var lastProcessedCrossing: Int = 0
 
@@ -71,30 +94,33 @@ class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
     private var lastNotInFrameSent: Date? = nil
     private var lastBackInFrameSent: Date? = nil
     private let notInFrameCooldown: Double = 2.0
-
-    // --- Access ball/net/crossing state via ballTracker ---
-    // Example usage:
-    // var confirmedNetPosition: CGRect? { ballTracker.confirmedNetPosition }
-    // var ballSideHistory: [String] { ballTracker.ballSideHistory }
-    // var crossingInProgress: Bool { ballTracker.crossingInProgress }
-    // var netTopY: CGFloat { ... } // If needed, add to BallTracker
-    // var netBottomY: CGFloat { ... } // If needed, add to BallTracker
-    // var ballHeightAtCrossing: CGFloat { ... } // If needed, add to BallTracker
     
-    // --- ML Utility Properties ---
-    private let swingPoseDetector = SwingPoseDetector()
-    private let angleClassifier = AngleClassifier()
-    private let ballTracker = BallTracker()
-    private let objectDetection = RacquetBallNetDetection()
+    // MARK: - Services (Dependency Injection)
+    /// ML Services for pose detection, angle classification, and object detection
+    let swingPoseDetector: SwingPoseDetectionService
+    let angleClassifier: AngleClassificationService
+    let objectDetection: ObjectDetectionService
     
+    /// Tracking and scoring services
+    let ballTracker: BallTrackingService
+    private let scoringService: ScoringService
+    
+    // MARK: - Computed Properties
     private var ballTrajectory: [BallPosition] {
         return ballTracker.ballTrajectory
     }
 
+    // MARK: - Initialization
     override init() {
+        // Initialize services
+        self.swingPoseDetector = SwingPoseDetectionService()
+        self.angleClassifier = AngleClassificationService()
+        self.objectDetection = ObjectDetectionService()
+        self.ballTracker = BallTrackingService()
+        self.scoringService = ScoringService(ballTrackingService: ballTracker)
+        
         super.init()
         setupCamera()
-        ballTracker.delegate = self
     }
     
     deinit {
@@ -108,72 +134,216 @@ class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
             }
         }
     }
-
+    
+    // MARK: - Camera Setup
+    
     private func setupCamera() {
-        captureSession.beginConfiguration()
-        
-        // Set up video quality
-        captureSession.sessionPreset = .high
-        
-        // Get the back camera
-        guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera,
-                                                       for: .video,
-                                                       position: .back) else {
-            print("Could not find a back camera")
-            return
-        }
-        
-        // Create video input
-        guard let videoDeviceInput = try? AVCaptureDeviceInput(device: videoDevice) else {
-            print("Could not create video device input")
-            return
-        }
-        
-        guard captureSession.canAddInput(videoDeviceInput) else {
-            print("Could not add video device input to the session")
-            return
-        }
-        
-        captureSession.addInput(videoDeviceInput)
-        
-        // Set up video output
-        let videoDataOutput = AVCaptureVideoDataOutput()
-        videoDataOutput.setSampleBufferDelegate(self, queue: DispatchQueue(label: "VideoDataOutput", qos: .userInitiated))
-        
-        guard captureSession.canAddOutput(videoDataOutput) else {
-            print("Could not add video data output to the session")
-            return
-        }
-        
-        captureSession.addOutput(videoDataOutput)
-        self.videoDataOutput = videoDataOutput
-        self.videoDataOutputQueue = DispatchQueue(label: "VideoDataOutput", qos: .userInitiated)
-        
-        // Add movieFileOutput to session
-        if captureSession.canAddOutput(movieFileOutput) {
-            captureSession.addOutput(movieFileOutput)
-        }
-        
-        captureSession.commitConfiguration()
-        
-        // Start the session on a background thread
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.captureSession.startRunning()
-            DispatchQueue.main.async {
-                self?.isVideoReady = true
-                self?.strokeClassification = "Camera ready - Tap to start racquet analysis"
+        Task {
+            do {
+                try await requestCameraPermission()
+                try await configureCamera()
+                await startCameraSession()
+            } catch {
+                await handleCameraSetupError(error)
             }
         }
     }
     
-    private func stopSession() {
-        captureSession.stopRunning()
+    private func requestCameraPermission() async throws {
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        
+        switch status {
+        case .authorized:
+            return
+        case .notDetermined:
+            let granted = await AVCaptureDevice.requestAccess(for: .video)
+            if !granted {
+                throw CameraSetupError.permissionDenied
+            }
+        case .denied, .restricted:
+            throw CameraSetupError.permissionDenied
+        @unknown default:
+            throw CameraSetupError.permissionDenied
+        }
     }
-
+    
+    private func configureCamera() async throws {
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let self = self else {
+                    continuation.resume(throwing: CameraSetupError.deviceNotFound)
+                    return
+                }
+                
+                do {
+                    self.captureSession.beginConfiguration()
+                    
+                    try self.setupVideoInput()
+                    try self.setupVideoOutput()
+                    try self.setupMovieOutput()
+                    self.configureSessionPreset()
+                    
+                    self.captureSession.commitConfiguration()
+                    continuation.resume()
+                } catch {
+                    self.captureSession.commitConfiguration()
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    private func setupVideoInput() throws {
+        // Remove existing inputs
+        captureSession.inputs.forEach { captureSession.removeInput($0) }
+        
+        guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera,
+                                                       for: .video,
+                                                       position: .back) else {
+            throw CameraSetupError.deviceNotFound
+        }
+        
+        // Configure device settings
+        try configureVideoDevice(videoDevice)
+        
+        let videoDeviceInput = try AVCaptureDeviceInput(device: videoDevice)
+        
+        guard captureSession.canAddInput(videoDeviceInput) else {
+            throw CameraSetupError.cannotAddInput
+        }
+        
+        captureSession.addInput(videoDeviceInput)
+    }
+    
+    private func configureVideoDevice(_ device: AVCaptureDevice) throws {
+        try device.lockForConfiguration()
+        defer { device.unlockForConfiguration() }
+        
+        // Set optimal settings for tennis analysis
+        if device.isFocusModeSupported(.continuousAutoFocus) {
+            device.focusMode = .continuousAutoFocus
+        }
+        
+        if device.isExposureModeSupported(.continuousAutoExposure) {
+            device.exposureMode = .continuousAutoExposure
+        }
+        
+        // Set frame rate for smooth video
+        if let format = device.activeFormat.videoSupportedFrameRateRanges.first {
+            let targetFrameRate = min(60.0, format.maxFrameRate)
+            device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFrameRate))
+            device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFrameRate))
+        }
+    }
+    
+    private func setupVideoOutput() throws {
+        // Remove existing video outputs
+        captureSession.outputs.compactMap { $0 as? AVCaptureVideoDataOutput }.forEach {
+            captureSession.removeOutput($0)
+        }
+        
+        let videoDataOutput = AVCaptureVideoDataOutput()
+        
+        // Configure video output settings
+        videoDataOutput.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+        ]
+        
+        // Create dedicated queue for video processing
+        let videoQueue = DispatchQueue(label: "com.trytennis.video.processing", qos: .userInitiated)
+        videoDataOutput.setSampleBufferDelegate(self, queue: videoQueue)
+        
+        // Ensure frames are not dropped
+        videoDataOutput.alwaysDiscardsLateVideoFrames = false
+        
+        guard captureSession.canAddOutput(videoDataOutput) else {
+            throw CameraSetupError.cannotAddVideoOutput
+        }
+        
+        captureSession.addOutput(videoDataOutput)
+        self.videoDataOutput = videoDataOutput
+        self.videoDataOutputQueue = videoQueue
+    }
+    
+    private func setupMovieOutput() throws {
+        // Remove existing movie outputs
+        captureSession.outputs.compactMap { $0 as? AVCaptureMovieFileOutput }.forEach {
+            captureSession.removeOutput($0)
+        }
+        
+        guard captureSession.canAddOutput(movieFileOutput) else {
+            throw CameraSetupError.cannotAddMovieOutput
+        }
+        
+        captureSession.addOutput(movieFileOutput)
+    }
+    
+    private func configureSessionPreset() {
+        // Try different presets in order of preference
+        let preferredPresets: [AVCaptureSession.Preset] = [.high, .medium, .low]
+        
+        for preset in preferredPresets {
+            if captureSession.canSetSessionPreset(preset) {
+                captureSession.sessionPreset = preset
+                break
+            }
+        }
+    }
+    
+    private func startCameraSession() async {
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let self = self else {
+                    continuation.resume()
+                    return
+                }
+                
+                self.captureSession.startRunning()
+                
+                DispatchQueue.main.async {
+                    self.isVideoReady = true
+                    self.strokeClassification = "Camera ready - Tap to start racquet analysis"
+                    continuation.resume()
+                }
+            }
+        }
+    }
+    
+    private func handleCameraSetupError(_ error: Error) async {
+        await MainActor.run {
+            let errorMessage: String
+            if let cameraError = error as? CameraSetupError {
+                errorMessage = cameraError.localizedDescription
+            } else {
+                errorMessage = "Camera setup failed: \(error.localizedDescription)"
+            }
+            
+            self.strokeClassification = errorMessage
+            self.isVideoReady = false
+        }
+    }
+    
+    // MARK: - Session Management
+    
+    private func stopSession() {
+        guard captureSession.isRunning else { return }
+        
+        DispatchQueue.global(qos: .background).async { [weak self] in
+            self?.captureSession.stopRunning()
+        }
+    }
+    
+    func restartCamera() {
+        stopSession()
+        setupCamera()
+    }
+    
     private func getDocumentsDirectory() -> URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
     
+    // MARK: - Recording Management
+
     private func startRecording() {
         PHPhotoLibrary.requestAuthorization { status in
             if status == .authorized {
@@ -189,7 +359,6 @@ class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
                 // Start recording to a temporary file
                 self.movieFileOutput.startRecording(to: tempURL, recordingDelegate: self)
             } else {
-                print("Photo library access denied. Cannot record video.")
                 DispatchQueue.main.async {
                     self.strokeClassification = "Photo access denied"
                     self.isProcessing = false // Stop processing if no access
@@ -227,7 +396,7 @@ class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
     }
 
     // saveSessionData now accepts the local identifier for the video
-    private func saveSessionData(videoLocalIdentifier: String?) {
+    func saveSessionData(videoLocalIdentifier: String?) {
         guard let context = modelContext else { return }
         
         let newSession = Session(
@@ -242,20 +411,12 @@ class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
         newSession.optimalRacquetTimestamp = self.optimalRacquetTimestamp
         
         context.insert(newSession)
-        
-        print("Session saved with video local identifier and timestamps.")
+
     }
     
     // Method to inject ModelContext
     func setContext(_ modelContext: ModelContext) {
         self.modelContext = modelContext
-    }
-
-    private func handleNewImpact() {
-        // No longer increment totalAttempts here; it is now counted on left-to-right crossing
-        DispatchQueue.main.async {
-            self.currentStatus = "Shot in progress..."
-        }
     }
     
     private func checkRacquetBallProximityAndAnalyzeAngle(racquetPosition: CGRect, ballPosition: CGRect, pixelBuffer: CVPixelBuffer) {
@@ -273,7 +434,7 @@ class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
             let currentTime = Date()
             if lastRacquetAngleAnalysisTime == nil ||
                currentTime.timeIntervalSince(lastRacquetAngleAnalysisTime!) >= racquetAngleAnalysisCooldown {
-                print("[DEBUG] Triggering HeadAngleV2 analysis - racquet and ball are close (distance: \(distance))")
+
                 DispatchQueue.main.async {
                     self.angleClassification = ""
                     self.currentStatus = "Analyzing racquet angle..."
@@ -288,7 +449,7 @@ class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
                 }       // pindah ke AngleClassification
                 lastRacquetAngleAnalysisTime = currentTime
             } else {
-                print("[DEBUG] Skipping analysis - cooldown active")
+                //
             }
         } else {
             DispatchQueue.main.async {
@@ -300,9 +461,7 @@ class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
         }
     }
     
-    func ballTracker(_ tracker: BallTracker, didProcessCrossingResult result: NetCrossingResult) {
-        processCrossingResult(result)
-    }
+    // MARK: - Scoring Methods
     
     private func processCrossingResult(_ result: NetCrossingResult) {
         // Prevent duplicate processing
@@ -312,12 +471,18 @@ class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
         
         lastProcessedCrossing = frameCount
         
+        // Update scoring service with current frame count
+        scoringService.setFrameCount(frameCount)
+        
         DispatchQueue.main.async {
             switch result {
             case .success_over_net:
-                self.successfulShots += 1
-                self.currentStatus = "✅ Shot successful! Ball cleared the net"
-                print("🎉 SUCCESSFUL SHOT: Ball cleared net at frame \(self.frameCount)")
+                self.scoringService.incrementSuccessful()
+                
+                // Update UI
+                let stats = self.scoringService.getStatistics()
+                self.successfulShots = stats.successful
+                self.totalAttempts = stats.total
                 
                 // Send success feedback to watch
                 WatchConnectivityManager.shared.sendImmediateShotFeedback(
@@ -325,26 +490,16 @@ class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
                     isSuccessful: true
                 )
                 
-            case .failed_hit_net:
-                self.failedShots += 1
-                self.currentStatus = "❌ Shot failed - ball hit the net"
-                print("💥 FAILED SHOT: Ball hit net at frame \(self.frameCount)")
+            case .failed_hit_net, .failed_under_net:
+                self.scoringService.incrementFailed()
                 
-            case .failed_under_net:
-                self.failedShots += 1
-                self.currentStatus = "❌ Shot failed - ball went under the net"
-                print("⬇️ FAILED SHOT: Ball went under net at frame \(self.frameCount)")
+                // Update UI
+                let stats = self.scoringService.getStatistics()
+                self.failedShots = stats.failed
+                self.totalAttempts = stats.total
                 
             case .uncertain:
-                self.currentStatus = "🤔 Uncertain crossing result"
                 break
-            }
-            
-            // Auto-hide status after 3 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                if self.currentStatus.contains("successful") || self.currentStatus.contains("failed") {
-                    self.currentStatus = "Ready for next shot"
-                }
             }
         }
         
@@ -352,8 +507,10 @@ class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
         ballTracker.resetAllTracking()
     }
 
-    // Add method to reset statistics and tracking
+    /// Reset statistics and tracking
     func resetStatistics() {
+        scoringService.resetStatistics()
+        
         DispatchQueue.main.async {
             self.totalAttempts = 0
             self.successfulShots = 0
@@ -368,50 +525,9 @@ class CameraViewModel: NSObject, ObservableObject, BallTrackerDelegate {
 
 }
 
-// MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
-extension CameraViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
-    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard isProcessing else { return }
-        
-        frameCount += 1
-        guard frameCount % frameSkip == 0 else { return }
-        
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        
-        // Pass pixelBuffer to pose detection
-        swingPoseDetector.processFrameForPoseDetection(pixelBuffer)
-    }
-}
-
-// MARK: - AVCaptureFileOutputRecordingDelegate
-extension CameraViewModel: AVCaptureFileOutputRecordingDelegate {
-    func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
-        if let error = error {
-            print("Error recording video: \(error.localizedDescription)")
-            // Save session data without video if recording failed
-            DispatchQueue.main.async { [weak self] in
-                self?.saveSessionData(videoLocalIdentifier: nil)
-            }
-            try? FileManager.default.removeItem(at: outputFileURL) // Clean up temporary file
-            return
-        }
-        
-        // Save the recorded video to Photos library
-        var localIdentifier: String? = nil
-        PHPhotoLibrary.shared().performChanges({
-            let creationRequest = PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: outputFileURL)
-            localIdentifier = creationRequest?.placeholderForCreatedAsset?.localIdentifier
-        }) { [weak self] saved, error in
-            DispatchQueue.main.async {
-                if saved {
-                    self?.saveSessionData(videoLocalIdentifier: localIdentifier)
-                } else {
-                    print("Error saving video to Photos library: \(error?.localizedDescription ?? "unknown error")")
-                    self?.saveSessionData(videoLocalIdentifier: nil)
-                }
-                // Delete the temporary video file after it's been handled by Photos
-                try? FileManager.default.removeItem(at: outputFileURL)
-            }
-        }
-    }
+// MARK: - Sendable
+extension CameraViewModel: @unchecked Sendable {
+    // This extension provides Sendable conformance
+    // Using @unchecked Sendable because CameraViewModel manages its own thread safety
+    // as an ObservableObject that inherits from NSObject
 }

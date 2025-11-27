@@ -1,64 +1,116 @@
 import Foundation
 
-protocol BallTrackerDelegate: AnyObject {
-    func ballTracker(_ tracker: BallTracker, didProcessCrossingResult result: NetCrossingResult)
-}
-
-class BallTracker {
-    // -- Ball Trajectory --
+/// Service for tracking ball trajectory and state during gameplay
+class BallTrackingService {
+    // MARK: - Properties
     private var _ballTrajectory: [BallPosition] = []
     public var ballTrajectory: [BallPosition] { _ballTrajectory }
-    private let maxTrajectoryLength = 10 // Track last 10 positions
+    private let maxTrajectoryLength = 10
     private var consecutiveFramesWithBall = 0
 
-    // -- Velocity Smoothing --
     private var velocityHistory: [CGPoint] = []
     private let velocityHistoryLength = 5
     public private(set) var ballVelocity: CGPoint = .zero
     public private(set) var lastBallVelocity: CGPoint = .zero
 
-    // -- Net Position --
     public private(set) var confirmedNetPosition: CGRect?
     private var netPositions: [CGRect] = []
-    private let maxNetVariance: CGFloat = 0.05  // Maximum allowed variance in net position
+    private let maxNetVariance: CGFloat = 0.05
 
-    // -- Ball State --
     public private(set) var lastBallState: BallState = .unknown
     public private(set) var crossingInProgress = false
     public private(set) var ballSideHistory: [String] = []
-
-    // -- Dependency Injection --
-    var scoringSystem: ScoringSystem!
-
-    // -- Delegate --
-    weak var delegate: BallTrackerDelegate?
     
-    init() {
-        self.scoringSystem = ScoringSystem(ballTracker: self)
-    }
+    // MARK: - Public Methods
     
-    private func updateBallTrajectory(ballPosition: CGRect, frameCount: Int) {
+    /// Update ball trajectory with a new position
+    public func updateBallTrajectory(ballPosition: CGRect, frameCount: Int) {
         let ballCenter = CGPoint(x: ballPosition.midX, y: ballPosition.midY)
         let timestamp = CFAbsoluteTimeGetCurrent()
         
         let ballPos = BallPosition(center: ballCenter, timestamp: timestamp, frame: frameCount)
         _ballTrajectory.append(ballPos)
         
-        // Keep only recent trajectory points
         if _ballTrajectory.count > maxTrajectoryLength {
             _ballTrajectory.removeFirst()
         }
         
-        // Calculate smoothed velocity
         calculateSmoothedVelocity()
-        
         consecutiveFramesWithBall += 1
-        
-        // Update ball state based on trajectory
         updateBallState(ballCenter: ballCenter)
     }
     
-    // Enhanced velocity calculation with smoothing
+    /// Update net position
+    public func updateNetPosition(_ netRect: CGRect) {
+        if validateNetPosition(netRect) {
+            netPositions.append(netRect)
+            if netPositions.count > 10 {
+                netPositions.removeFirst()
+            }
+            confirmedNetPosition = calculateStableNetPosition()
+        }
+    }
+    
+    /// Handle when ball is lost
+    public func handleBallLost() {
+        consecutiveFramesWithBall = 0
+        
+        if ballTrajectory.count > 0 &&
+           CFAbsoluteTimeGetCurrent() - ballTrajectory.last!.timestamp > 1.0 {
+            _ballTrajectory.removeAll()
+            ballSideHistory.removeAll()
+            crossingInProgress = false
+        }
+    }
+    
+    /// Add side to history
+    public func appendBallSideHistory(_ side: String) {
+        ballSideHistory.append(side)
+    }
+    
+    /// Remove first from history
+    public func removeFirstBallSideHistory() {
+        if !ballSideHistory.isEmpty {
+            ballSideHistory.removeFirst()
+        }
+    }
+    
+    /// Reset ball side history
+    public func resetBallSideHistory() {
+        ballSideHistory.removeAll()
+    }
+    
+    /// Set crossing in progress
+    public func setCrossingInProgress(_ value: Bool) {
+        crossingInProgress = value
+    }
+    
+    /// Reset ball velocity history
+    public func resetBallVelocityHistory() {
+        velocityHistory.removeAll()
+    }
+    
+    /// Reset ball trajectory
+    public func resetBallTrajectory() {
+        _ballTrajectory.removeAll()
+    }
+    
+    /// Reset all tracking data
+    public func resetAllTracking() {
+        resetBallSideHistory()
+        resetBallVelocityHistory()
+        resetBallTrajectory()
+        netPositions.removeAll()
+        confirmedNetPosition = nil
+        crossingInProgress = false
+        ballVelocity = .zero
+        lastBallVelocity = .zero
+        lastBallState = .unknown
+        consecutiveFramesWithBall = 0
+    }
+    
+    // MARK: - Private Methods
+    
     private func calculateSmoothedVelocity() {
         guard ballTrajectory.count >= 2 else { return }
         
@@ -77,7 +129,6 @@ class BallTracker {
                 velocityHistory.removeFirst()
             }
             
-            // Calculate smoothed velocity
             if !velocityHistory.isEmpty {
                 let avgVelX = velocityHistory.map { $0.x }.reduce(0, +) / CGFloat(velocityHistory.count)
                 let avgVelY = velocityHistory.map { $0.y }.reduce(0, +) / CGFloat(velocityHistory.count)
@@ -95,7 +146,7 @@ class BallTracker {
         }
         
         let distanceToNet = abs(ballCenter.x - netPos.midX)
-        let isMovingTowardNet = ballVelocity.x > 0 // Assuming net is on the right
+        let isMovingTowardNet = ballVelocity.x > 0
         
         if distanceToNet < 0.15 && isMovingTowardNet {
             lastBallState = .approaching_net
@@ -108,33 +159,11 @@ class BallTracker {
         }
     }
     
-    private func handleBallLost() {
-        consecutiveFramesWithBall = 0
-        
-        // If ball was lost during crossing, try to infer result from trajectory
-        if crossingInProgress && ballTrajectory.count >= 3 {
-            let result = scoringSystem.inferCrossingFromLostBall()
-            if result != .uncertain {
-                delegate?.ballTracker(self, didProcessCrossingResult: result)
-            }
-        }
-        
-        // Clear old trajectory if ball has been lost for too long
-        if ballTrajectory.count > 0 &&
-           CFAbsoluteTimeGetCurrent() - ballTrajectory.last!.timestamp > 1.0 {
-            _ballTrajectory.removeAll()
-            ballSideHistory.removeAll()
-            crossingInProgress = false
-        }
-    }
-    
-    // Validate net position consistency
     private func validateNetPosition(_ netRect: CGRect) -> Bool {
         if netPositions.isEmpty {
             return true
         }
         
-        // Check if new position is consistent with previous detections
         let recentPositions = netPositions.suffix(5)
         let avgX = recentPositions.map { $0.midX }.reduce(0, +) / CGFloat(recentPositions.count)
         let avgY = recentPositions.map { $0.midY }.reduce(0, +) / CGFloat(recentPositions.count)
@@ -146,7 +175,6 @@ class BallTracker {
     private func calculateStableNetPosition() -> CGRect? {
         guard !netPositions.isEmpty else { return nil }
         
-        // Calculate average position for stability
         let avgX = netPositions.map { $0.midX }.reduce(0, +) / CGFloat(netPositions.count)
         let avgY = netPositions.map { $0.midY }.reduce(0, +) / CGFloat(netPositions.count)
         let avgWidth = netPositions.map { $0.width }.reduce(0, +) / CGFloat(netPositions.count)
@@ -158,43 +186,5 @@ class BallTracker {
             width: avgWidth,
             height: avgHeight
         )
-    }
-    
-    // --- Ball Side History Mutators ---
-    public func appendBallSideHistory(_ side: String) {
-        ballSideHistory.append(side)
-    }
-    public func removeFirstBallSideHistory() {
-        if !ballSideHistory.isEmpty {
-            ballSideHistory.removeFirst()
-        }
-    }
-    public func resetBallSideHistory() {
-        ballSideHistory.removeAll()
-    }
-    // --- Crossing In Progress Mutator ---
-    public func setCrossingInProgress(_ value: Bool) {
-        crossingInProgress = value
-    }
-    
-    public func resetBallVelocityHistory() {
-        velocityHistory.removeAll()
-    }
-    
-    public func resetBallTrajectory() {
-        _ballTrajectory.removeAll()
-    }
-    
-    public func resetAllTracking() {
-        resetBallSideHistory()
-        resetBallVelocityHistory()
-        resetBallTrajectory()
-        netPositions.removeAll()
-        confirmedNetPosition = nil
-        crossingInProgress = false
-        ballVelocity = .zero
-        lastBallVelocity = .zero
-        lastBallState = .unknown
-        consecutiveFramesWithBall = 0
     }
 }

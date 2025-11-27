@@ -2,30 +2,32 @@ import Foundation
 import Vision
 import CoreML
 
+/// Result from swing detection
 struct SwingDetectionResult {
     let strokeClassification: String
     let confidence: Double
 }
 
-class SwingPoseDetector {
-    // --- Properties for the ML Models ---
+/// Service for detecting tennis swing poses using ML
+class SwingPoseDetectionService {
+    // MARK: - Properties
     private var swingDetector: SwingDetector?
     private var poseRequest: VNDetectHumanBodyPoseRequest?
     
-    // --- Internal properties for a single detection pass ---
     private var currentPixelBuffer: CVPixelBuffer?
     private var swingDetectionCompletionHandler: ((SwingDetectionResult) -> Void)?
     
-    // --- Internal properties for pose sequence logic ---
     public private(set) var poseSequence: [[Float]] = []
     private let sequenceLength = 30
     private let poseKeypoints = 18
     
+    // MARK: - Initialization
     init() {
         setupSwingDetection()
         setupPoseDetection()
     }
     
+    // MARK: - Private Methods
     private func setupSwingDetection() {
         do {
             let detector = try SwingDetector(configuration: MLModelConfiguration())
@@ -41,29 +43,11 @@ class SwingPoseDetector {
         })
     }
     
-    public func detectSwing(on pixelBuffer: CVPixelBuffer, completionHandler: @escaping (SwingDetectionResult) -> Void) {
-        self.currentPixelBuffer = pixelBuffer
-        self.swingDetectionCompletionHandler = completionHandler
-        self.processFrameForPoseDetection(pixelBuffer)
-    }
-    
-    public func processFrameForPoseDetection(_ pixelBuffer: CVPixelBuffer) {
-        guard let poseRequest = self.poseRequest else { return }
-        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
-        do {
-            try handler.perform([poseRequest])
-        } catch {
-            print("Failed to perform pose detection request: \(error.localizedDescription)")
-        }
-    }
-    
     private func handlePoseDetectionCompleted(for request: VNRequest, error: Error?) {
         guard let results = request.results as? [VNHumanBodyPoseObservation], let observation = results.first else { return }
         
-        // Extract pose keypoints
         var poseData: [Float] = []
         
-        // Define the body keypoints in the expected order
         let keypointNames: [VNHumanBodyPoseObservation.JointName] = [
             .nose, .leftEye, .rightEye, .leftEar, .rightEar,
             .leftShoulder, .rightShoulder, .leftElbow, .rightElbow,
@@ -75,12 +59,10 @@ class SwingPoseDetector {
             let recognizedPoints = try observation.recognizedPoints(.all)
             for jointName in keypointNames {
                 if let point = recognizedPoints[jointName], point.confidence > 0.1 {
-                    // Use raw normalized coordinates as output by Vision
                     poseData.append(Float(point.location.x))
                     poseData.append(Float(point.location.y))
                     poseData.append(Float(point.confidence))
                 } else {
-                    // If keypoint not detected or low confidence, set to 0
                     poseData.append(0.0)
                     poseData.append(0.0)
                     poseData.append(0.0)
@@ -91,15 +73,12 @@ class SwingPoseDetector {
             return
         }
         
-        // Add pose data to sequence
         poseSequence.append(poseData)
         
-        // Keep only the last 30 frames
         if poseSequence.count > sequenceLength {
             poseSequence.removeFirst()
         }
         
-        // When we have enough frames, trigger swing detection directly
         if poseSequence.count == sequenceLength {
             performSwingDetection()
         }
@@ -107,15 +86,11 @@ class SwingPoseDetector {
     
     private func performSwingDetection() {
         guard let detector = swingDetector else { return }
-        
-        // Only proceed if we have enough pose frames
         guard poseSequence.count == sequenceLength else { return }
         
         do {
-            // Create MLMultiArray with shape [30, 3, 18]
             let inputArray = try MLMultiArray(shape: [30, 3, 18], dataType: .float32)
             
-            // Process each frame in the sequence
             for (frameIndex, frameData) in poseSequence.enumerated() {
                 for keypointIndex in 0..<poseKeypoints {
                     let baseIndex = keypointIndex * 3
@@ -134,23 +109,38 @@ class SwingPoseDetector {
             DispatchQueue.main.async {
                 let sortedProbabilities = output.labelProbabilities.sorted { $0.value > $1.value }
                 if let topResult = sortedProbabilities.first {
-                    let confidence = topResult.value
-                    let actionLabel = topResult.key
-                    
                     let result = SwingDetectionResult(
-                        strokeClassification: actionLabel,
-                        confidence: confidence
+                        strokeClassification: topResult.key,
+                        confidence: topResult.value
                     )
-                    
                     self.swingDetectionCompletionHandler?(result)
                 }
             }
-            
         } catch {
             print("Failed to perform swing detection: \(error)")
         }
     }
     
+    // MARK: - Public Methods
+    /// Detect swing from a pixel buffer
+    public func detectSwing(on pixelBuffer: CVPixelBuffer, completionHandler: @escaping (SwingDetectionResult) -> Void) {
+        self.currentPixelBuffer = pixelBuffer
+        self.swingDetectionCompletionHandler = completionHandler
+        self.processFrameForPoseDetection(pixelBuffer)
+    }
+    
+    /// Process a frame for pose detection
+    public func processFrameForPoseDetection(_ pixelBuffer: CVPixelBuffer) {
+        guard let poseRequest = self.poseRequest else { return }
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
+        do {
+            try handler.perform([poseRequest])
+        } catch {
+            print("Failed to perform pose detection request: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Reset the pose sequence
     public func resetPoseSequence() {
         poseSequence.removeAll()
     }

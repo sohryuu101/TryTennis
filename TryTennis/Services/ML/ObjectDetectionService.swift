@@ -2,6 +2,7 @@ import Foundation
 import CoreML
 import Vision
 
+/// Result from racquet/ball/net detection
 struct RacquetBallNetDetectionResults {
     let pixelBuffer: CVPixelBuffer
     let detectedObjects: [DetectedObject]
@@ -10,17 +11,15 @@ struct RacquetBallNetDetectionResults {
     let netPosition: CGRect?
 }
 
-
-class RacquetBallNetDetection {
-    // --- Properties for the ML Model ---
+/// Service for detecting racquet, ball, and net using ML
+class ObjectDetectionService {
+    // MARK: - Properties
     private var racquetBallNetDetectionModel: VNCoreMLModel?
     private var racquetBallNetDetectionRequest: VNCoreMLRequest?
     
-    // --- Internal properties for a single detection pass ---
     private var currentPixelBuffer: CVPixelBuffer?
     private var detectionCompletionHandler: ((RacquetBallNetDetectionResults) -> Void)?
     
-    // --- Internal properties for detection logic ---
     private var averageBallSize: CGFloat = 0.0
     private let minBallSizeRatio: CGFloat = 0.5
     private let maxBallSizeRatio: CGFloat = 2.0
@@ -28,10 +27,12 @@ class RacquetBallNetDetection {
     private let netConfidenceThreshold: Float = 0.5
     private let racquetConfidenceThreshold: Float = 0.5
     
+    // MARK: - Initialization
     init() {
         setupRacquetBallNetDetection()
     }
     
+    // MARK: - Private Methods
     private func setupRacquetBallNetDetection() {
         do {
             let model = try RacquetBallNetDetect(configuration: MLModelConfiguration()).model
@@ -41,23 +42,8 @@ class RacquetBallNetDetection {
             }
             racquetBallNetDetectionRequest?.imageCropAndScaleOption = .scaleFill
         } catch {
-            print("Failed to load AnotherRacquetDetect ML model: \(error)")
+            print("Failed to load RacquetBallNetDetect ML model: \(error)")
         }
-    }
-    
-    public func detectRacquetBallNet(on pixelBuffer: CVPixelBuffer, completionHandler: @escaping (RacquetBallNetDetectionResults) -> Void) {
-        self.currentPixelBuffer = pixelBuffer
-        self.detectionCompletionHandler = completionHandler
-        
-        guard let request = self.racquetBallNetDetectionRequest else { return }
-        
-        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
-        do {
-            try handler.perform([request])
-        } catch {
-            print("Failed to perform racquet detection: \(error)")
-        }
-
     }
     
     private func handleObjectDetectionCompleted(for request: VNRequest, error: Error?) {
@@ -117,7 +103,6 @@ class RacquetBallNetDetection {
         detectionCompletionHandler?(racquetBallNetResult)
     }
     
-    // Helper method to update average ball size for filtering
     private func updateAverageBallSize(_ ballArea: CGFloat) {
         if averageBallSize == 0.0 {
             averageBallSize = ballArea
@@ -127,4 +112,19 @@ class RacquetBallNetDetection {
         }
     }
     
+    // MARK: - Public Methods
+    /// Detect racquet, ball, and net in a pixel buffer
+    public func detectRacquetBallNet(on pixelBuffer: CVPixelBuffer, completionHandler: @escaping (RacquetBallNetDetectionResults) -> Void) {
+        self.currentPixelBuffer = pixelBuffer
+        self.detectionCompletionHandler = completionHandler
+        
+        guard let request = self.racquetBallNetDetectionRequest else { return }
+        
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
+        do {
+            try handler.perform([request])
+        } catch {
+            print("Failed to perform racquet detection: \(error)")
+        }
+    }
 }

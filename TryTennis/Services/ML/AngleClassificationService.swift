@@ -2,22 +2,24 @@ import Foundation
 import Vision
 import AVFoundation
 
+/// Result from angle classification
 struct AngleClassifierResult {
     let angleResult: String
     let confidence: Float
 }
 
-class AngleClassifier {
-    // --- Properties for the ML Model ---
+/// Service for classifying racquet head angle using ML
+class AngleClassificationService {
+    // MARK: - Properties
     private var headAngleRequest: VNCoreMLRequest?
-    
-    // --- Internal properties for a single detection pass ---
     private var classificationCompletionHandler: ((AngleClassifierResult) -> Void)?
     
+    // MARK: - Initialization
     init() {
         setupHeadAngleRequest()
     }
     
+    // MARK: - Private Methods
     private func setupHeadAngleRequest() {
         do {
             let model = try HeadAngle(configuration: MLModelConfiguration()).model
@@ -31,6 +33,22 @@ class AngleClassifier {
         }
     }
     
+    private func handleAngleClassificationCompleted(for request: VNRequest, error: Error?) {
+        guard let results = request.results as? [VNClassificationObservation],
+              let topResult = results.first else {
+            return
+        }
+        
+        let classificationResult = AngleClassifierResult(
+            angleResult: topResult.identifier,
+            confidence: topResult.confidence
+        )
+        
+        classificationCompletionHandler?(classificationResult)
+    }
+    
+    // MARK: - Public Methods
+    /// Classify the racquet angle from a pixel buffer
     public func classify(on pixelBuffer: CVPixelBuffer, completionHandler: @escaping (AngleClassifierResult) -> Void) {
         self.classificationCompletionHandler = completionHandler
         
@@ -42,23 +60,5 @@ class AngleClassifier {
         } catch {
             print("Failed to perform head angle classification request: \(error.localizedDescription)")
         }
-    }
-    
-    private func handleAngleClassificationCompleted(for request: VNRequest, error: Error?) {
-        guard let results = request.results as? [VNClassificationObservation],
-              let topResult = results.first else {
-            return
-        }
-        
-        // Immediately update the angle classification without delay
-        let angleClassification = topResult.identifier
-        
-        let classificationResult = AngleClassifierResult(
-            angleResult: angleClassification,
-            confidence: topResult.confidence
-        )
-        
-        classificationCompletionHandler?(classificationResult)
-
     }
 }

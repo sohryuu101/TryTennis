@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// View for Grip Classifier feature
 struct GripClassifierView: View {
     @StateObject var viewModel = GripClassifierViewModel()
     
