@@ -13,6 +13,22 @@ struct RacquetBallNetDetectionResults {
 
 /// Service for detecting racquet, ball, and net using ML
 class ObjectDetectionService {
+    // MARK: - Constants
+    private enum Constants {
+        static let labelBall = "ball"
+        static let labelNet = "net"
+        static let labelRacquet = "racquet"
+        
+        static let minBallSizeRatio: CGFloat = 0.5
+        static let maxBallSizeRatio: CGFloat = 2.0
+        
+        static let ballConfidenceThreshold: Float = 0.5
+        static let netConfidenceThreshold: Float = 0.5
+        static let racquetConfidenceThreshold: Float = 0.5
+        
+        static let movingAverageWeight: CGFloat = 0.1
+    }
+    
     // MARK: - Properties
     private var racquetBallNetDetectionModel: VNCoreMLModel?
     private var racquetBallNetDetectionRequest: VNCoreMLRequest?
@@ -21,11 +37,6 @@ class ObjectDetectionService {
     private var detectionCompletionHandler: ((RacquetBallNetDetectionResults) -> Void)?
     
     private var averageBallSize: CGFloat = 0.0
-    private let minBallSizeRatio: CGFloat = 0.5
-    private let maxBallSizeRatio: CGFloat = 2.0
-    private let ballConfidenceThreshold: Float = 0.5
-    private let netConfidenceThreshold: Float = 0.5
-    private let racquetConfidenceThreshold: Float = 0.5
     
     // MARK: - Initialization
     init() {
@@ -35,12 +46,15 @@ class ObjectDetectionService {
     // MARK: - Private Methods
     private func setupRacquetBallNetDetection() {
         do {
-            let model = try RacquetBallNetDetect(configuration: MLModelConfiguration()).model
-            racquetBallNetDetectionModel = try VNCoreMLModel(for: model)
-            racquetBallNetDetectionRequest = VNCoreMLRequest(model: racquetBallNetDetectionModel!) { [weak self] (request, error) in
+            let config = MLModelConfiguration()
+            let model = try RacquetBallNetDetect(configuration: config).model
+            let vnModel = try VNCoreMLModel(for: model)
+            self.racquetBallNetDetectionModel = vnModel
+            
+            self.racquetBallNetDetectionRequest = VNCoreMLRequest(model: vnModel) { [weak self] (request, error) in
                 self?.handleObjectDetectionCompleted(for: request, error: error)
             }
-            racquetBallNetDetectionRequest?.imageCropAndScaleOption = .scaleFill
+            self.racquetBallNetDetectionRequest?.imageCropAndScaleOption = .scaleFill
         } catch {
             print("Failed to load RacquetBallNetDetect ML model: \(error)")
         }
@@ -62,27 +76,27 @@ class ObjectDetectionService {
             let confidence = topLabelObservation.confidence
             let label = topLabelObservation.identifier
             
-            if confidence > ballConfidenceThreshold && label == "ball" { 
+            if confidence > Constants.ballConfidenceThreshold && label == Constants.labelBall {
                 // Validate ball size if we have an average
                 let ballArea = boundingBox.width * boundingBox.height
                 let isValidSize = averageBallSize == 0.0 ||
-                    (ballArea >= averageBallSize * minBallSizeRatio &&
-                     ballArea <= averageBallSize * maxBallSizeRatio)
+                    (ballArea >= averageBallSize * Constants.minBallSizeRatio &&
+                     ballArea <= averageBallSize * Constants.maxBallSizeRatio)
                 
                 if isValidSize {
                     currentBallPosition = boundingBox
                     updateAverageBallSize(ballArea)
                 }
-            } else if confidence > netConfidenceThreshold && label == "net" {
+            } else if confidence > Constants.netConfidenceThreshold && label == Constants.labelNet {
                 currentNetPosition = boundingBox
-            } else if confidence > racquetConfidenceThreshold && label == "racquet" {
+            } else if confidence > Constants.racquetConfidenceThreshold && label == Constants.labelRacquet {
                 currentRacquetPosition = boundingBox
             }
             
             // Only add high-confidence detections to UI
-            if (label == "ball" && confidence > ballConfidenceThreshold) ||
-               (label == "net" && confidence > netConfidenceThreshold) ||
-               (label == "racquet" && confidence > racquetConfidenceThreshold) {
+            if (label == Constants.labelBall && confidence > Constants.ballConfidenceThreshold) ||
+               (label == Constants.labelNet && confidence > Constants.netConfidenceThreshold) ||
+               (label == Constants.labelRacquet && confidence > Constants.racquetConfidenceThreshold) {
                 let detectedObject = DetectedObject(
                     label: label,
                     confidence: confidence,
@@ -108,7 +122,7 @@ class ObjectDetectionService {
             averageBallSize = ballArea
         } else {
             // Exponential moving average
-            averageBallSize = averageBallSize * 0.9 + ballArea * 0.1
+            averageBallSize = averageBallSize * (1.0 - Constants.movingAverageWeight) + ballArea * Constants.movingAverageWeight
         }
     }
     

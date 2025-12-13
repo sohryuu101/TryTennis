@@ -10,6 +10,15 @@ struct SwingDetectionResult {
 
 /// Service for detecting tennis swing poses using ML
 class SwingPoseDetectionService {
+    // MARK: - Constants
+    private enum Constants {
+        static let sequenceLength = 30
+        static let poseKeypointsCount = 18
+        static let inputChannels = 3
+        static let minConfidence: Float = 0.1
+        static let inputShape: [NSNumber] = [30, 3, 18]
+    }
+    
     // MARK: - Properties
     private var swingDetector: SwingDetector?
     private var poseRequest: VNDetectHumanBodyPoseRequest?
@@ -18,8 +27,6 @@ class SwingPoseDetectionService {
     private var swingDetectionCompletionHandler: ((SwingDetectionResult) -> Void)?
     
     public private(set) var poseSequence: [[Float]] = []
-    private let sequenceLength = 30
-    private let poseKeypoints = 18
     
     // MARK: - Initialization
     init() {
@@ -30,7 +37,8 @@ class SwingPoseDetectionService {
     // MARK: - Private Methods
     private func setupSwingDetection() {
         do {
-            let detector = try SwingDetector(configuration: MLModelConfiguration())
+            let config = MLModelConfiguration()
+            let detector = try SwingDetector(configuration: config)
             swingDetector = detector
         } catch {
             print("Failed to load SwingDetector ML model: \(error)")
@@ -58,14 +66,14 @@ class SwingPoseDetectionService {
         do {
             let recognizedPoints = try observation.recognizedPoints(.all)
             for jointName in keypointNames {
-                if let point = recognizedPoints[jointName], point.confidence > 0.1 {
+                if let point = recognizedPoints[jointName], Float(point.confidence) > Constants.minConfidence {
                     poseData.append(Float(point.location.x))
                     poseData.append(Float(point.location.y))
                     poseData.append(Float(point.confidence))
                 } else {
-                    poseData.append(0.0)
-                    poseData.append(0.0)
-                    poseData.append(0.0)
+                    poseData.append(0.0) // x
+                    poseData.append(0.0) // y
+                    poseData.append(0.0) // confidence
                 }
             }
         } catch {
@@ -75,49 +83,59 @@ class SwingPoseDetectionService {
         
         poseSequence.append(poseData)
         
-        if poseSequence.count > sequenceLength {
+        if poseSequence.count > Constants.sequenceLength {
             poseSequence.removeFirst()
         }
         
-        if poseSequence.count == sequenceLength {
+        if poseSequence.count == Constants.sequenceLength {
             performSwingDetection()
         }
     }
     
     private func performSwingDetection() {
         guard let detector = swingDetector else { return }
-        guard poseSequence.count == sequenceLength else { return }
+        guard poseSequence.count == Constants.sequenceLength else { return }
         
-        do {
-            let inputArray = try MLMultiArray(shape: [30, 3, 18], dataType: .float32)
-            
-            for (frameIndex, frameData) in poseSequence.enumerated() {
-                for keypointIndex in 0..<poseKeypoints {
-                    let baseIndex = keypointIndex * 3
-                    let x = min(max(frameData[baseIndex], 0.0), 1.0)
-                    let y = min(max(frameData[baseIndex + 1], 0.0), 1.0)
-                    let confidence = min(max(frameData[baseIndex + 2], 0.0), 1.0)
-                    inputArray[[frameIndex, 0, keypointIndex] as [NSNumber]] = NSNumber(value: x)
-                    inputArray[[frameIndex, 1, keypointIndex] as [NSNumber]] = NSNumber(value: y)
-                    inputArray[[frameIndex, 2, keypointIndex] as [NSNumber]] = NSNumber(value: confidence)
+        // Deep copy sequence to avoid modification during processing if async
+        let currentSequence = poseSequence
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let inputArray = try MLMultiArray(shape: Constants.inputShape, dataType: .float32)
+                
+                for (frameIndex, frameData) in currentSequence.enumerated() {
+                    for keypointIndex in 0..<Constants.poseKeypointsCount {
+                        let baseIndex = keypointIndex * Constants.inputChannels
+                        // Ensure we don't go out of bounds if frameData is malformed, though it shouldn't be
+                        guard baseIndex + 2 < frameData.count else { continue }
+                        
+                        let x = min(max(frameData[baseIndex], 0.0), 1.0)
+                        let y = min(max(frameData[baseIndex + 1], 0.0), 1.0)
+                        let confidence = min(max(frameData[baseIndex + 2], 0.0), 1.0)
+                        
+                        inputArray[[frameIndex, 0, keypointIndex] as [NSNumber]] = NSNumber(value: x)
+                        inputArray[[frameIndex, 1, keypointIndex] as [NSNumber]] = NSNumber(value: y)
+                        inputArray[[frameIndex, 2, keypointIndex] as [NSNumber]] = NSNumber(value: confidence)
+                    }
                 }
-            }
-            
-            let input = SwingDetectorInput(poses: inputArray)
-            let output = try detector.prediction(input: input)
-            
-            DispatchQueue.main.async {
+                
+                let input = SwingDetectorInput(poses: inputArray)
+                let output = try detector.prediction(input: input)
+                
                 let sortedProbabilities = output.labelProbabilities.sorted { $0.value > $1.value }
                 if let topResult = sortedProbabilities.first {
                     let result = SwingDetectionResult(
                         strokeClassification: topResult.key,
                         confidence: topResult.value
                     )
-                    self.swingDetectionCompletionHandler?(result)
+                    
+                    DispatchQueue.main.async {
+                        self?.swingDetectionCompletionHandler?(result)
+                    }
                 }
+            } catch {
+                print("Failed to perform swing detection: \(error)")
             }
-        } catch {
-            print("Failed to perform swing detection: \(error)")
         }
     }
     

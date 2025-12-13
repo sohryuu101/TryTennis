@@ -23,45 +23,81 @@ class GripClassificationService {
         }
     }
     
-    // MARK: - Public Methods
-    /// Classify the grip from an image
-    public func classifyGrip(from image: UIImage, completion: @escaping (Result<(confidence: Int, level: GripConfidenceLevel), Error>) -> Void) {
-        guard let ciImage = CIImage(image: image) else {
-            completion(.failure(NSError(domain: "GripClassificationService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to create CIImage"])))
-            return
-        }
+    enum ClassificationError: LocalizedError {
+        case failedToCreateCIImage
+        case noResultsFound
+        case modelInitializationFailed
         
+        var errorDescription: String? {
+            switch self {
+            case .failedToCreateCIImage:
+                return "Failed to create CIImage from input image."
+            case .noResultsFound:
+                return "No classification results found."
+            case .modelInitializationFailed:
+                return "Failed to initialize the ML model."
+            }
+        }
+    }
+    
+    // MARK: - Properties
+    // Cache the model to avoid expensive reloading
+    private lazy var vnModel: VNCoreMLModel? = {
         do {
             let config = MLModelConfiguration()
             let coreMLModel = try GripClassifier(configuration: config).model
-            let vnModel = try VNCoreMLModel(for: coreMLModel)
-            
-            let request = VNCoreMLRequest(model: vnModel) { request, error in
+            return try VNCoreMLModel(for: coreMLModel)
+        } catch {
+            print("Failed to load GripClassifier: \(error)")
+            return nil
+        }
+    }()
+    
+    // MARK: - Public Methods
+    /// Classify the grip from an image
+    /// - Parameter image: The image to classify
+    /// - Returns: A tuple containing the confidence score and the grip level
+    public func classifyGrip(from image: UIImage) async throws -> (confidence: Int, level: GripConfidenceLevel) {
+        guard let ciImage = CIImage(image: image) else {
+            throw ClassificationError.failedToCreateCIImage
+        }
+        
+        guard let model = self.vnModel else {
+            throw ClassificationError.modelInitializationFailed
+        }
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            let request = VNCoreMLRequest(model: model) { [weak self] request, error in
                 if let error = error {
-                    completion(.failure(error))
+                    continuation.resume(throwing: error)
                     return
                 }
+                
+                guard let self = self else { return }
                 
                 if let results = request.results as? [VNClassificationObservation] {
                     // Find the top classification that contains "Eastern"
                     if let easternResult = results.first(where: { $0.identifier.localizedCaseInsensitiveContains("Eastern") }) {
                         let confidence = Int(easternResult.confidence * 100)
                         let level = self.getConfidenceLevel(for: confidence)
-                        completion(.success((confidence, level)))
-                    } else if let _ = results.first {
-                        // Fallback to top result if no Eastern found
-                        completion(.success((0, .keepGoing)))
+                        continuation.resume(returning: (confidence, level))
+                    } else if results.first != nil {
+                        // Fallback to top result if no Eastern found, but imply low confidence for specific target
+                        continuation.resume(returning: (0, .keepGoing))
                     } else {
-                        completion(.failure(NSError(domain: "GripClassificationService", code: -2, userInfo: [NSLocalizedDescriptionKey: "No results found"])))
+                        continuation.resume(throwing: ClassificationError.noResultsFound)
                     }
+                } else {
+                    continuation.resume(throwing: ClassificationError.noResultsFound)
                 }
             }
             
             let handler = VNImageRequestHandler(ciImage: ciImage, options: [:])
-            try handler.perform([request])
-            
-        } catch {
-            completion(.failure(error))
+            do {
+                try handler.perform([request])
+            } catch {
+                continuation.resume(throwing: error)
+            }
         }
     }
     

@@ -4,11 +4,14 @@ import Vision
 
 /// ViewModel for Grip Classifier feature
 /// Coordinates UI state and delegates ML processing to GripClassificationService
+@MainActor
 class GripClassifierViewModel: BaseViewModel {
     // MARK: - Published Properties
     @Published var image: UIImage? = nil {
         didSet {
-            classifyImage()
+            if image != nil {
+                classifyImage()
+            }
         }
     }
     @Published var classificationResult: [String] = []
@@ -39,16 +42,15 @@ class GripClassifierViewModel: BaseViewModel {
             return
         }
         
-        gripClassificationService.classifyGrip(from: imageToClassify) { [weak self] result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let (confidence, level)):
-                    self?.classificationResult = level.messages
-                    self?.result = confidence
-                case .failure:
-                    self?.classificationResult = ["Error occurred", "Please try again"]
-                    self?.result = 0
-                }
+        Task {
+            do {
+                let (confidence, level) = try await gripClassificationService.classifyGrip(from: imageToClassify)
+                self.classificationResult = level.messages
+                self.result = confidence
+            } catch {
+                self.classificationResult = ["Error occurred", "Please try again"]
+                self.result = 0
+                print("Classification failed: \(error.localizedDescription)")
             }
         }
     }
