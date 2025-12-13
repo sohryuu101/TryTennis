@@ -28,6 +28,10 @@ class SwingPoseDetectionService {
     
     public private(set) var poseSequence: [[Float]] = []
     
+    // Cooldown management
+    private var lastDetectionTime: Date?
+    private let detectionCooldown: TimeInterval = 1.0
+    
     // MARK: - Initialization
     init() {
         setupSwingDetection()
@@ -96,17 +100,22 @@ class SwingPoseDetectionService {
         guard let detector = swingDetector else { return }
         guard poseSequence.count == Constants.sequenceLength else { return }
         
-        // Deep copy sequence to avoid modification during processing if async
+        // Cooldown check
+        if let lastTime = lastDetectionTime, Date().timeIntervalSince(lastTime) < detectionCooldown {
+            return
+        }
+        
+        // Deep copy sequence ...
         let currentSequence = poseSequence
         
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
                 let inputArray = try MLMultiArray(shape: Constants.inputShape, dataType: .float32)
                 
+                // ... (filling input array) ...
                 for (frameIndex, frameData) in currentSequence.enumerated() {
                     for keypointIndex in 0..<Constants.poseKeypointsCount {
                         let baseIndex = keypointIndex * Constants.inputChannels
-                        // Ensure we don't go out of bounds if frameData is malformed, though it shouldn't be
                         guard baseIndex + 2 < frameData.count else { continue }
                         
                         let x = min(max(frameData[baseIndex], 0.0), 1.0)
@@ -123,7 +132,7 @@ class SwingPoseDetectionService {
                 let output = try detector.prediction(input: input)
                 
                 let sortedProbabilities = output.labelProbabilities.sorted { $0.value > $1.value }
-                if let topResult = sortedProbabilities.first {
+                if let topResult = sortedProbabilities.first, topResult.value > 0.7 { // only high confidence
                     let result = SwingDetectionResult(
                         strokeClassification: topResult.key,
                         confidence: topResult.value
@@ -131,6 +140,9 @@ class SwingPoseDetectionService {
                     
                     DispatchQueue.main.async {
                         self?.swingDetectionCompletionHandler?(result)
+                        self?.lastDetectionTime = Date()
+                        // Reset sequence to restart detection window
+                        self?.resetPoseSequence() 
                     }
                 }
             } catch {

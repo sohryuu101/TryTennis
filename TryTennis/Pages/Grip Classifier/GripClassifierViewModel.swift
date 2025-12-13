@@ -44,9 +44,17 @@ class GripClassifierViewModel: BaseViewModel {
         
         Task {
             do {
-                let (confidence, level) = try await gripClassificationService.classifyGrip(from: imageToClassify)
-                self.classificationResult = level.messages
-                self.result = confidence
+                let (confidence, level, label) = try await gripClassificationService.classifyGrip(from: imageToClassify)
+                
+                // If the detected grip is not Eastern, we might want to inform the user
+                // assuming the user is TRYING to do Eastern.
+                if !label.localizedCaseInsensitiveContains("Eastern") {
+                     self.classificationResult = ["Detected \(label)", "Try adjusting to Eastern Grip"]
+                     self.result = confidence // Show the confidence of the detected grip
+                } else {
+                    self.classificationResult = level.messages
+                    self.result = confidence
+                }
             } catch {
                 self.classificationResult = ["Error occurred", "Please try again"]
                 self.result = 0

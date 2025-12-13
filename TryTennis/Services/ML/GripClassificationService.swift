@@ -56,8 +56,8 @@ class GripClassificationService {
     // MARK: - Public Methods
     /// Classify the grip from an image
     /// - Parameter image: The image to classify
-    /// - Returns: A tuple containing the confidence score and the grip level
-    public func classifyGrip(from image: UIImage) async throws -> (confidence: Int, level: GripConfidenceLevel) {
+    /// - Returns: A tuple containing the confidence score, grip level, and detected label
+    public func classifyGrip(from image: UIImage) async throws -> (confidence: Int, level: GripConfidenceLevel, label: String) {
         guard let ciImage = CIImage(image: image) else {
             throw ClassificationError.failedToCreateCIImage
         }
@@ -65,6 +65,8 @@ class GripClassificationService {
         guard let model = self.vnModel else {
             throw ClassificationError.modelInitializationFailed
         }
+        
+        let orientation = CGImagePropertyOrientation(image.imageOrientation)
         
         return try await withCheckedThrowingContinuation { continuation in
             let request = VNCoreMLRequest(model: model) { [weak self] request, error in
@@ -75,24 +77,20 @@ class GripClassificationService {
                 
                 guard let self = self else { return }
                 
-                if let results = request.results as? [VNClassificationObservation] {
-                    // Find the top classification that contains "Eastern"
-                    if let easternResult = results.first(where: { $0.identifier.localizedCaseInsensitiveContains("Eastern") }) {
-                        let confidence = Int(easternResult.confidence * 100)
-                        let level = self.getConfidenceLevel(for: confidence)
-                        continuation.resume(returning: (confidence, level))
-                    } else if results.first != nil {
-                        // Fallback to top result if no Eastern found, but imply low confidence for specific target
-                        continuation.resume(returning: (0, .keepGoing))
-                    } else {
-                        continuation.resume(throwing: ClassificationError.noResultsFound)
-                    }
+                if let results = request.results as? [VNClassificationObservation],
+                   let topResult = results.first {
+                    
+                    let confidence = Int(topResult.confidence * 100)
+                    let level = self.getConfidenceLevel(for: confidence)
+                    let label = topResult.identifier
+                    
+                    continuation.resume(returning: (confidence, level, label))
                 } else {
                     continuation.resume(throwing: ClassificationError.noResultsFound)
                 }
             }
             
-            let handler = VNImageRequestHandler(ciImage: ciImage, options: [:])
+            let handler = VNImageRequestHandler(ciImage: ciImage, orientation: orientation, options: [:])
             do {
                 try handler.perform([request])
             } catch {
