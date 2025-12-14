@@ -26,24 +26,24 @@ struct LiveAnalysisView: View {
                                 HStack(spacing: 16) {
                                     // Successful Shots
                                     VStack(spacing: 4) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(.green)
-                                            .font(.system(size: 18))
+                                        TryTennisIcon.checkmarkCircleFill.swiftUIImage
+                                             .foregroundColor(Token.success500.swiftUIColor)
+                                             .font(.system(size: 18))
                                         Text("\(cameraService.successfulShots)")
                                             .font(.headline)
                                             .fontWeight(.bold)
-                                            .foregroundColor(.green)
+                                            .foregroundColor(Token.success500.swiftUIColor)
                                     }
                                     
                                     // Failed Shots
                                     VStack(spacing: 4) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundColor(.red)
+                                        TryTennisIcon.xmarkCircleFill.swiftUIImage
+                                            .foregroundColor(Token.error500.swiftUIColor)
                                             .font(.system(size: 18))
                                         Text("\(cameraService.failedShots)")
                                             .font(.headline)
                                             .fontWeight(.bold)
-                                            .foregroundColor(.red)
+                                            .foregroundColor(Token.error500.swiftUIColor)
                                     }
                                 }
                                 .padding(.horizontal, 12)
@@ -63,12 +63,12 @@ struct LiveAnalysisView: View {
                             
                             if !cameraService.angleClassification.isEmpty {
                                 HStack {
-                                    Image(systemName: "scope")
-                                        .foregroundColor(.orange)
+                                    TryTennisIcon.scope.swiftUIImage
+                                        .foregroundColor(Token.accent500.swiftUIColor)
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("Racquet Face Angle")
                                             .font(.caption)
-                                            .foregroundColor(.secondary)
+                                            .foregroundColor(Token.gray500.swiftUIColor)
                                         Text(cameraService.angleClassification)
                                             .font(.subheadline)
                                             .fontWeight(.medium)
@@ -90,7 +90,7 @@ struct LiveAnalysisView: View {
                     
                     // Vertical Separator
                     Rectangle()
-                        .fill(Color.white.opacity(0.2))
+                        .fill(Token.white.swiftUIColor.opacity(0.2))
                         .frame(width: 1)
                     
                     // Right-side control panel
@@ -107,16 +107,16 @@ struct LiveAnalysisView: View {
                             VStack(spacing: 12) {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.white)
+                                        .fill(Token.white.swiftUIColor)
                                         .frame(width: 90, height: 90)
                                     
                                     Circle()
-                                        .fill(Color.black)
+                                        .fill(Token.black.swiftUIColor)
                                         .frame(width: 80, height: 80)
                                     
-                                    Image(systemName: cameraService.isProcessing ? "stop.fill" : "circle.fill")
+                                    (cameraService.isProcessing ? TryTennisIcon.stopFill.swiftUIImage : TryTennisIcon.circleFill.swiftUIImage)
                                         .font(.system(size: cameraService.isProcessing ? 40 : 70))
-                                        .foregroundColor(.red)
+                                        .foregroundColor(Token.error500.swiftUIColor)
                                 }
                             }
                         }
@@ -130,12 +130,12 @@ struct LiveAnalysisView: View {
                             cameraService.resetStatistics()
                         }) {
                             VStack(spacing: 8) {
-                                Image(systemName: "arrow.counterclockwise")
+                                TryTennisIcon.arrowCounterClockwise.swiftUIImage
                                     .font(.system(size: 12))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Token.white.swiftUIColor)
                                 Text("Reset\nStats")
                                     .font(.system(size:8))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Token.white.swiftUIColor)
                                     .multilineTextAlignment(.center)
                             }
                             .padding(.vertical, 12)
@@ -149,27 +149,27 @@ struct LiveAnalysisView: View {
                     .frame(width: 120)
                     .background(
                         LinearGradient(
-                            gradient: Gradient(colors: [Color.black.opacity(0.6), Color.black.opacity(0.3)]),
+                            gradient: Gradient(colors: [Token.black.swiftUIColor.opacity(0.6), Token.black.swiftUIColor.opacity(0.3)]),
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
                 }
                 .ignoresSafeArea()
-                .background(Color.black)
+                .background(Token.black.swiftUIColor)
                 .orientationLock(.landscape)
                 .onAppear {
                     cameraService.setContext(modelContext)
                 }
             } else {
-                Color.black.ignoresSafeArea()
+                Token.black.swiftUIColor.ignoresSafeArea()
                     .overlay(
                         VStack {
-                            Image(systemName: "iphone.gen3.landscape")
+                            TryTennisIcon.iphoneLandscape.swiftUIImage
                                 .font(.system(size: 60))
-                                .foregroundColor(.white)
+                                .foregroundColor(Token.white.swiftUIColor)
                             Text("Please rotate your device to landscape")
-                                .foregroundColor(.white)
+                                .foregroundColor(Token.white.swiftUIColor)
                                 .font(.headline)
                                 .padding()
                         }

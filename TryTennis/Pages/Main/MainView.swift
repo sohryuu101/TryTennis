@@ -14,15 +14,15 @@ struct MainView: View {
                     ZStack{
                         RadialGradient(
                             gradient: Gradient(colors: [
-                                Color("additionalBrown"),
-                                Color.black]),
+                                Token.bestSeller.swiftUIColor,
+                                Token.black.swiftUIColor]),
                             center: .center,
                             startRadius: 5,
                             endRadius: 150
                         )
                         .frame(height: UIScreen.main.bounds.width * 0.55)
                         
-                        Image("mascot")
+                        TryTennisIcon.mascot.swiftUIImage
                             .resizable()
                             .scaledToFit()
                             .frame(width: UIScreen.main.bounds.width * 0.34, height: UIScreen.main.bounds.width * 0.55)
@@ -33,20 +33,20 @@ struct MainView: View {
                 }
                 
                 Text("Hey! Let’s break down your stroke.")
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Token.white.swiftUIColor)
                     .font(.system(size: 15, weight: .regular))
                 
                 Text("Let’s see what your swing’s really made of.")
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Token.white.swiftUIColor)
                     .font(.system(size: 15, weight: .regular))
                 
                 NavigationLink(destination: LiveAnalysisTutorialView()) {
                     Text("Start Analyzing")
-                        .foregroundColor(.white)
+                        .foregroundColor(Token.white.swiftUIColor)
                         .font(.system(size: 15, weight: .bold))
                         .padding(.vertical, 12)
                         .frame(maxWidth: .infinity)
-                        .background(Color("primaryOrange"))
+                        .background(Token.accent500.swiftUIColor)
                         .cornerRadius(99)
                         .padding(.horizontal)
                 }
@@ -57,31 +57,31 @@ struct MainView: View {
                 HStack{
                     VStack(alignment: .leading){
                         HStack{
-                            Image("grip")
+                            TryTennisIcon.grip.swiftUIImage
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 25, height: 25)
                             
                             Text("Grip Analysis")
                                 .font(.system(size: 17, weight: .regular))
-                                .foregroundStyle(Color.white)
+                                .foregroundStyle(Token.white.swiftUIColor)
                             Spacer()
                         }
                         
                         Text("Snap a pic of your grip")
                             .font(.system(size: 15, weight: .regular))
-                            .foregroundStyle(Color.white)
+                            .foregroundStyle(Token.white.swiftUIColor)
                         
                     }
                     
                     Spacer()
                     
-                    Image(systemName: "arrow.right")
-                        .foregroundStyle(Color.white)
+                    TryTennisIcon.arrowRight.swiftUIImage
+                        .foregroundStyle(Token.white.swiftUIColor)
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity)
-                .background(Color("grayscale10"))
+                .background(Token.gray50.swiftUIColor)
                 .cornerRadius(20)
                 .padding(.horizontal)
             }
@@ -92,7 +92,7 @@ struct MainView: View {
             ToolbarItem(placement: .navigationBarTrailing){
                 NavigationLink(destination: SessionHistoryView()){
                     HStack{
-                        Image("history")
+                        TryTennisIcon.history.swiftUIImage
                             .resizable()
                             .scaledToFit()
                             .frame(width: 20, height: 20)
@@ -100,10 +100,10 @@ struct MainView: View {
                         Text("History")
                             .font(.system(size: 17, weight: .regular))
                     }
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Token.white.swiftUIColor)
                     .padding(.vertical, 8)
                     .padding(.horizontal, 16)
-                    .background(Color("newGray2"))
+                    .background(Token.gray200.swiftUIColor)
                     .cornerRadius(20)
                 }
             }

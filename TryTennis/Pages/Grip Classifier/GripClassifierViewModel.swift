@@ -22,9 +22,9 @@ class GripClassifierViewModel: BaseViewModel {
     
     // MARK: - Properties
     let gripGuide: [Guide] = [
-        Guide(image: "grip_guide_1", title: "Index knuckle on bevel 3"),
-        Guide(image: "grip_guide_2", title: "Grip handle like a handshake"),
-        Guide(image: "grip_guide_3", title: "Ensure the photo brightness")
+        Guide(image: TryTennisIcon.gripGuide1, title: "Index knuckle on bevel 3"),
+        Guide(image: TryTennisIcon.gripGuide2, title: "Grip handle like a handshake"),
+        Guide(image: TryTennisIcon.gripGuide3, title: "Ensure the photo brightness")
     ]
     
     private let gripClassificationService: GripClassificationService

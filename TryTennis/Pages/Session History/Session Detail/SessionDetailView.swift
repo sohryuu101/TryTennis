@@ -12,18 +12,18 @@ struct SessionDetailView: View {
     
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Token.black.swiftUIColor.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     // Date and time row
                     HStack {
                         Text(viewModel.formattedDate)
                             .font(.subheadline)
-                            .foregroundColor(Color(white: 0.7))
+                            .foregroundColor(Token.gray300.swiftUIColor)
                         Spacer()
                         Text(viewModel.formattedTime)
                             .font(.subheadline)
-                            .foregroundColor(Color(white: 0.7))
+                            .foregroundColor(Token.gray300.swiftUIColor)
                     }
                     .padding(.top, 8)
                     .padding(.horizontal)
@@ -31,7 +31,7 @@ struct SessionDetailView: View {
                     // Title
                     Text("Highlights")
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(Color("primaryLightGreen"))
+                        .foregroundColor(Token.primary100.swiftUIColor)
                         .padding(.horizontal)
                         .padding(.top, 2)
 
@@ -44,16 +44,16 @@ struct SessionDetailView: View {
                             }) {
                                 Text(angle.rawValue)
                                     .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(selectedAngle == angle ? .black : .white)
+                                    .foregroundColor(selectedAngle == angle ? Token.black.swiftUIColor : Token.white.swiftUIColor)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 8)
-                                    .background(selectedAngle == angle ? Color.white : Color.clear)
+                                    .background(selectedAngle == angle ? Token.white.swiftUIColor : Color.clear)
                                     .clipShape(Capsule())
                             }
                         }
                     }
                     .background(
-                        Capsule().fill(Color.white.opacity(0.08))
+                        Capsule().fill(Token.white.swiftUIColor.opacity(0.08))
                     )
                     .padding(.horizontal)
                     .padding(.top, 12)
@@ -61,7 +61,7 @@ struct SessionDetailView: View {
                     // Video preview
                     ZStack {
                         RoundedRectangle(cornerRadius: 18)
-                            .fill(Color(white: 0.12))
+                            .fill(Token.gray900.swiftUIColor)
                             .frame(height: 200)
                         
                         if let thumbnail = viewModel.videoThumbnail {
@@ -83,12 +83,12 @@ struct SessionDetailView: View {
                         
                         if !viewModel.isLoadingVideo && viewModel.angleTimestamp(for: selectedAngle) == nil {
                             VStack {
-                                Image(systemName: "video.slash")
+                                TryTennisIcon.videoSlash.swiftUIImage
                                     .font(.system(size: 32))
-                                    .foregroundColor(Color(white: 0.5))
+                                    .foregroundColor(Token.gray500.swiftUIColor)
                                 Text("No \(selectedAngle.rawValue.lowercased()) shot recorded")
                                     .font(.caption)
-                                    .foregroundColor(Color(white: 0.5))
+                                    .foregroundColor(Token.gray500.swiftUIColor)
                                     .multilineTextAlignment(.center)
                             }
                             .allowsHitTesting(false)
@@ -104,10 +104,10 @@ struct SessionDetailView: View {
                                     }
                                 }
                             }) {
-                                Image(systemName: "play.circle.fill")
+                                TryTennisIcon.playCircleFill.swiftUIImage
                                     .resizable()
                                     .frame(width: 56, height: 56)
-                                    .foregroundColor(Color(white: 0.8))
+                                    .foregroundColor(Token.gray300.swiftUIColor)
                             }
                             .disabled(viewModel.isLoadingVideo)
                         }
@@ -123,33 +123,33 @@ struct SessionDetailView: View {
                         VStack {
                             Text("\(viewModel.session.successfulShots)")
                                 .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(Color.orange)
+                                .foregroundColor(Token.accent500.swiftUIColor)
                             Text("SUCCESS")
                                 .font(.caption)
-                                .foregroundColor(Color.orange)
+                                .foregroundColor(Token.accent500.swiftUIColor)
                         }
                         .frame(maxWidth: .infinity)
                         ZStack {
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(white: 0.12))
+                                .fill(Token.gray900.swiftUIColor)
                                 .frame(height: 56)
                             VStack {
                                 Text("\(viewModel.session.totalAttempts)")
                                     .font(.system(size: 24, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Token.white.swiftUIColor)
                                 Text("TOTAL ATTEMPTS")
                                     .font(.caption)
-                                    .foregroundColor(Color.orange)
+                                    .foregroundColor(Token.accent500.swiftUIColor)
                             }
                         }
                         .frame(maxWidth: .infinity)
                         VStack {
                             Text("\(viewModel.session.failedShots)")
                                 .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(Color.orange)
+                                .foregroundColor(Token.accent500.swiftUIColor)
                             Text("FAIL")
                                 .font(.caption)
-                                .foregroundColor(Color.orange)
+                                .foregroundColor(Token.accent500.swiftUIColor)
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -160,11 +160,11 @@ struct SessionDetailView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         Text("About Racquet Head Angle")
                             .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(Color("primaryLightGreen"))
+                            .foregroundColor(Token.primary100.swiftUIColor)
                             .padding(.top, 24)
                             .padding(.horizontal)
                         VStack(alignment: .leading, spacing: 0) {
-                            Image("LiveAnalysis")
+                            TryTennisIcon.liveAnalysis.swiftUIImage
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .frame(height: 140)
@@ -173,15 +173,15 @@ struct SessionDetailView: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("Learn About Racquet Head Angle")
                                     .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(Color("primaryLightGreen"))
+                                    .foregroundColor(Token.primary100.swiftUIColor)
                                 Text("How the angle of your racquet face impacts your shots and how to improve yours.")
                                     .font(.system(size: 15))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Token.white.swiftUIColor)
                             }
                             .padding(.horizontal)
                             .padding(.vertical, 18)
                         }
-                        .background(Color(white: 0.12))
+                        .background(Token.gray900.swiftUIColor)
                         .cornerRadius(24)
                         .padding(.horizontal)
                         .padding(.top, 24)
@@ -198,7 +198,7 @@ struct SessionDetailView: View {
             .navigationTitle("Session Detail")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarBackground(Token.black.swiftUIColor, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .sheet(isPresented: $showingVideoPlayer) {
                 if let player = viewModel.player {
@@ -223,16 +223,16 @@ struct ClipButton: View {
     var body: some View {
         Button(action: action) {
             HStack {
-                Image(systemName: "play.circle.fill")
+                TryTennisIcon.playCircleFill.swiftUIImage
                     .foregroundColor(color)
                 Text(title)
-                    .foregroundColor(.white)
+                    .foregroundColor(Token.white.swiftUIColor)
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundColor(.white.opacity(0.6))
+                TryTennisIcon.chevronRight.swiftUIImage
+                    .foregroundColor(Token.white.swiftUIColor.opacity(0.6))
             }
             .padding()
-            .background(Color.white.opacity(0.1))
+            .background(Token.white.swiftUIColor.opacity(0.1))
             .cornerRadius(10)
         }
     }

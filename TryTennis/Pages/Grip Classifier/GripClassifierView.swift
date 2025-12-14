@@ -14,7 +14,7 @@ struct GripClassifierView: View {
             VStack(alignment: .leading) {
                 ForEach(viewModel.gripGuide) { guide in
                     HStack{
-                        Image(guide.image)
+                        guide.image.swiftUIImage
                             .resizable()
                             .scaledToFit()
                             .frame(width: 70, height: 70)
@@ -60,7 +60,7 @@ struct GripClassifierView: View {
                             Button(action:{
                                 viewModel.closeResult()
                             }, label:{
-                                Image(systemName: "xmark")
+                                TryTennisIcon.xmark.swiftUIImage
                                     .foregroundStyle(Color("primaryOrange"))
                                     .font(.system(size: 20, weight: .semibold))
                             })

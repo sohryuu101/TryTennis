@@ -13,7 +13,7 @@ struct SplashScreenView: View{
                 
                 VStack(alignment: .center, spacing: 10){
                     VStack{
-                        Image("IconTransparent")
+                        TryTennisIcon.iconTransparent.swiftUIImage
                             .resizable()
                             .frame(width: 150, height: 160)
                         

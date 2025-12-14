@@ -9,52 +9,61 @@ struct RacquetHeadArticleSheet: View {
                     Group {
                         Text("Racquet Head Angle")
                             .font(.title2).bold()
-                            .foregroundColor(Color("primaryLightGreen"))
+                            .foregroundColor(Token.primary100.swiftUIColor)
                         Text("The racquet head angle is the tilt of your racquet head when making **contact** with the ball. This angle affects where the ball goes and how it behaves.")
-                            .foregroundColor(.white)
+                            .foregroundColor(Token.white.swiftUIColor)
                             .font(.body)
                     }
-                    Divider().background(Color.white.opacity(0.2))
+                    Divider().background(Token.white.swiftUIColor.opacity(0.2))
                     Group {
                         Text("Watch This Example")
                             .font(.title3).bold()
-                            .foregroundColor(Color("primaryLightGreen"))
+                            .foregroundColor(Token.primary100.swiftUIColor)
                         Text("See the correct racquet head angle from a side angle.")
-                            .foregroundColor(.white)
+                            .foregroundColor(Token.white.swiftUIColor)
                         ZStack {
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.white.opacity(0.08))
+                                .fill(Token.white.swiftUIColor.opacity(0.08))
                                 .frame(height: 180)
-                            Image(systemName: "play.circle.fill")
+                            TryTennisIcon.playCircleFill.swiftUIImage
                                 .resizable()
                                 .frame(width: 48, height: 48)
-                                .foregroundColor(Color(white: 0.7))
+                                .foregroundColor(Token.gray300.swiftUIColor)
                         }
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Proper Forehand Contact — Racquet Face Angle")
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .foregroundColor(Token.white.swiftUIColor)
                             HStack(spacing: 12) {
-                                Label("Duration: 1:20", systemImage: "clock")
-                                    .foregroundColor(.white.opacity(0.8))
-                                Label("Filmed from the same angle used in TryTennis Live Analysis", systemImage: "mappin.and.ellipse")
-                                    .foregroundColor(.white.opacity(0.8))
+                                Label {
+                                    Text("Duration: 1:20")
+                                } icon: {
+                                    TryTennisIcon.clock.swiftUIImage
+                                }
+                                .foregroundColor(Token.white.swiftUIColor.opacity(0.8))
+                                
+                                Label {
+                                    Text("Filmed from the same angle used in TryTennis Live Analysis")
+                                } icon: {
+                                    TryTennisIcon.mapPinEllipse.swiftUIImage
+                                }
+                                .foregroundColor(Token.white.swiftUIColor.opacity(0.8))
                             }
                         }
                     }
                 }
                 .padding()
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(Token.black.swiftUIColor.ignoresSafeArea())
             .navigationTitle("Racquet Head Article")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarBackground(Token.black.swiftUIColor, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
-                        .foregroundColor(Color("primaryLightGreen"))
+                        .foregroundColor(Token.primary100.swiftUIColor)
                 }
             }
         }

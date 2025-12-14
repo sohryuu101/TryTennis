@@ -4,20 +4,20 @@ struct LiveAnalysisTutorialView: View{
     @State var currentTab: Int = 0
     
     let videoGuide: [Guide] = [
-        Guide(image: "video_guide_1", title: "Connect to Apple Watch"),
-        Guide(image: "video_guide_2", title: "Place your camera in a fixed position"),
+        Guide(image: TryTennisIcon.videoGuide1, title: "Connect to Apple Watch"),
+        Guide(image: TryTennisIcon.videoGuide2, title: "Place your camera in a fixed position"),
     ]
     
     var body: some View {
         ZStack{
-            Color.black
+            Token.black.swiftUIColor
                 .edgesIgnoringSafeArea(.all)
             
             
             VStack(alignment: .leading) {
                 ForEach(videoGuide) { guide in
                     HStack{
-                        Image(guide.image)
+                        guide.image.swiftUIImage
                             .resizable()
                             .scaledToFit()
                             .frame(width: 70, height: 70)
@@ -25,21 +25,21 @@ struct LiveAnalysisTutorialView: View{
                         
                         Text(guide.title)
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Color.white)
+                            .foregroundStyle(Token.white.swiftUIColor)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(Color("grayscale10"))
+                    .background(Token.gray50.swiftUIColor)
                     .cornerRadius(10)
                 }
                 
                 Text("Ensure the net and player are visible")
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Token.white.swiftUIColor)
                     .padding(.horizontal)
                     .padding(.top, 16)
                     .padding(.bottom, 8)
                     
-                Image("video_guide_3")
+                TryTennisIcon.videoGuide3.swiftUIImage
                     .resizable()
                     .scaledToFit()
                     .frame(maxWidth: .infinity)
@@ -48,11 +48,11 @@ struct LiveAnalysisTutorialView: View{
                 
                 NavigationLink(destination: LiveAnalysisView()){
                     Text("Start Live Analysis")
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(Token.white.swiftUIColor)
                         .font(.system(size: 20, weight: .semibold))
                         .padding(.vertical, 9.5)
                         .frame(maxWidth: .infinity)
-                        .background(Color("primaryOrange"))
+                        .background(Token.accent500.swiftUIColor)
                         .cornerRadius(50)
                         .padding(.horizontal)
                         .padding(.bottom)

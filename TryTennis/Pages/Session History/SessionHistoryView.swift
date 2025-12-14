@@ -11,21 +11,21 @@ struct SessionHistoryView: View {
     
     var body: some View {
         ZStack {
-            Color.black
+            Token.black.swiftUIColor
                 .ignoresSafeArea(edges: .all)
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 24) {
                     Text("Session History")
                         .font(.system(size: 36, weight: .bold))
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(Token.white.swiftUIColor)
                         .padding(.top, 8)
 
                     // Today
                     if !viewModel.todaySessions.isEmpty {
                         Text("Today")
                             .font(.system(size: 22, weight: .bold))
-                            .foregroundStyle(Color.white)
+                            .foregroundStyle(Token.white.swiftUIColor)
                             .padding(.top, 8)
                         ForEach(viewModel.todaySessions) { session in
                             SessionHistoryRow(session: session, showTime: true)
@@ -36,7 +36,7 @@ struct SessionHistoryView: View {
                     if !viewModel.past7DaysSessions.isEmpty {
                         Text("Past 7 Days")
                             .font(.system(size: 22, weight: .bold))
-                            .foregroundStyle(Color.white)
+                            .foregroundStyle(Token.white.swiftUIColor)
                             .padding(.top, 8)
                         ForEach(viewModel.past7DaysSessions) { session in
                             SessionHistoryRow(session: session, showTime: false)
@@ -47,7 +47,7 @@ struct SessionHistoryView: View {
                     if !viewModel.past12MonthsSessions.isEmpty {
                         Text("Past 12 Months")
                             .font(.system(size: 22, weight: .bold))
-                            .foregroundStyle(Color.white)
+                            .foregroundStyle(Token.white.swiftUIColor)
                             .padding(.top, 8)
                         ForEach(viewModel.past12MonthsSessions) { session in
                             SessionHistoryRow(session: session, showTime: false)
@@ -81,19 +81,19 @@ struct SessionHistoryRow: View {
             HStack {
                 Text("\(session.successfulShots)")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(Color("primaryGreen"))
+                    .foregroundColor(Token.primary500.swiftUIColor)
                 Text("Successful Returns")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.black)
+                    .foregroundColor(Token.black.swiftUIColor)
                 Spacer()
                 Text(showTime ? session.timestamp.formatted(date: .omitted, time: .shortened) : session.timestamp.formatted(date: .abbreviated, time: .omitted))
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.gray)
-                Image(systemName: "chevron.right")
-                    .foregroundColor(.gray)
+                    .foregroundColor(Token.gray500.swiftUIColor)
+                TryTennisIcon.chevronRight.swiftUIImage
+                    .foregroundColor(Token.gray500.swiftUIColor)
             }
             .padding()
-            .background(Color("light:hover"))
+            .background(Token.primary50.swiftUIColor)
             .cornerRadius(18)
         }
         .buttonStyle(.plain)
